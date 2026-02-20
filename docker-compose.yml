@@ -1,0 +1,273 @@
+# Docker Compose configuration for DECP project
+# This configuration sets up the necessary services for the DECP project, including:
+# - PostgreSQL for database management
+# - Redis for caching
+# - Kafka for message brokering
+# - MinIO for object storage
+# - Kong for API gateway
+# - Prometheus for monitoring
+# - Grafana for visualization
+
+# Note: Ensure that the `prometheus.yml` file is correctly configured to scrape metrics from the services.
+# To start the services, run `docker-compose up -d` in the terminal.
+
+version: "3.9"
+
+# Network configuration for the services
+networks:
+  decp-network:
+    driver: bridge
+
+# Volumes for data persistence
+volumes:
+  postgres_data:
+  minio_data:
+  mongo-data:
+  kong_data:
+
+# Service definitions
+services:
+  # ----------------- Core Services -----------------
+
+  postgres:
+    image: postgres:18
+    container_name: decp-postgres
+    environment:
+      POSTGRES_USER: decp
+      POSTGRES_PASSWORD: decp123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - decp-network
+    ports:
+      - "5432:5432"
+
+  mongo:
+    image: mongo:8.2.5
+    container_name: mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    ports:
+      - "27017:27017"
+    networks:
+      - decp-network
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7
+    container_name: decp-redis
+    restart: always
+    networks:
+      - decp-network
+    ports:
+      - "6379:6379"
+
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: decp-kafka
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    networks:
+      - decp-network
+    ports:
+      - "9092:9092"
+
+  minio:
+    image: minio/minio
+    container_name: decp-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - decp-network
+
+  kong-database:
+    image: postgres:18
+    container_name: decp-kong-db
+    environment:
+      POSTGRES_DB: kong
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kong
+    networks:
+      - decp-network
+    volumes:
+      - kong_data:/var/lib/postgresql/data
+
+  kong:
+    image: kong:latest
+    container_name: decp-kong
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_PASSWORD: kong
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    depends_on:
+      - kong-database
+    networks:
+      - decp-network
+
+  prometheus:
+    image: prom/prometheus
+    container_name: decp-prometheus
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - decp-network
+
+  grafana:
+    image: grafana/grafana
+    container_name: decp-grafana
+    ports:
+      - "3001:3000"
+    networks:
+      - decp-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: decp-elasticsearch
+    environment:
+      - discovery.type=single-node
+    ports:
+      - "9200:9200"
+    networks:
+      - decp-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: decp-kibana
+    depends_on:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+    networks:
+      - decp-network
+
+  # ----------------- Microservices -----------------
+  identity-service:
+    build: ./services/identity-service
+    env_file:
+      - ./services/identity-service/.env
+    networks:
+      - decp-network
+    expose:
+      - "3000"
+    depends_on:
+      - postgres
+      - kafka
+
+  engagement-service:
+    build: ./services/engagement-service
+    env_file:
+      - ./services/engagement-service/.env
+    networks:
+      - decp-network
+    expose:
+      - "3001"
+    depends_on:
+      - mongo
+      - kafka
+      - minio
+
+  career-service:
+    build: ./services/career-service
+    env_file:
+      - ./services/career-service/.env
+    networks:
+      - decp-network
+    expose:
+      - "3002"
+    depends_on:
+      - postgres
+      - kafka
+
+  event-service:
+    build: ./services/event-service
+    env_file:
+      - ./services/event-service/.env
+    networks:
+      - decp-network
+    expose:
+      - "3003"
+    depends_on:
+      - postgres
+      - kafka
+
+  message-service:
+    build: ./services/message-service
+    env_file:
+      - ./services/message-service/.env
+    networks:
+      - decp-network
+    expose:
+      - "3004"
+    depends_on:
+      - mongo
+      - kafka
+
+  notification-service:
+    build: ./services/notification-service
+    env_file:
+      - ./services/notification-service/.env
+    networks:
+      - decp-network
+    expose:
+      - "3005"
+    depends_on:
+      - kafka
+
+  collaboration-service:
+    build: ./services/collaboration-service
+    env_file:
+      - ./services/collaboration-service/.env
+    networks:
+      - decp-network
+    expose:
+      - "3006"
+    depends_on:
+      - kafka
+
+  analytics-service:
+    build: ./services/analytics-service
+    env_file:
+      - ./services/analytics-service/.env
+    networks:
+      - decp-network
+    expose:
+      - "3007"
+    depends_on:
+      - kafka
+
+  api-gateway:
+    build: ./services/api-gateway
+    env_file:
+      - ./services/api-gateway/.env
+    networks:
+      - decp-network
+    ports:
+      - "3008:3008"
+    depends_on:
+      - kafka
