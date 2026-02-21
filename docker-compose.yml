@@ -33,13 +33,13 @@ services:
   # ----------------- Core Services -----------------
 
   postgres:
-    image: postgres:latest
+    image: postgres:18.2
     container_name: decp-postgres
     environment:
       POSTGRES_USER: decp
       POSTGRES_PASSWORD: decp123
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     networks:
       - decp-network
     ports:
@@ -51,7 +51,7 @@ services:
       retries: 5
 
   mongo:
-    image: mongo:latest
+    image: mongo:8.2.3
     container_name: dhcp-mongo
     restart: unless-stopped
     environment:
@@ -65,7 +65,7 @@ services:
       - decp-network
 
   redis:
-    image: redis:latest
+    image: redis:8.6
     container_name: decp-redis
     restart: always
     volumes:
@@ -84,7 +84,7 @@ services:
   # KAFKA
   # =========================
   kafka:
-    image: apache/kafka:latest
+    image: apache/kafka:4.2.0
     container_name: decp-kafka
     environment:
       - KAFKA_NODE_ID=1
@@ -100,7 +100,7 @@ services:
       - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS= 0
       - KAFKA_NUM_PARTITIONS= 3
     volumes:
-      - kafka_data:/kafka/data
+      - kafka_data:/tmp/kafka-logs
     networks:
       - decp-network
     ports:
@@ -134,19 +134,19 @@ services:
   # KONG API GATEWAY
   # =========================
   kong-database:
-    image: postgres:latest
+    image: postgres:18.2
     container_name: decp-kong-db
     environment:
       POSTGRES_DB: kong
       POSTGRES_USER: kong
       POSTGRES_PASSWORD: kong
     volumes:
-      - kong_data:/var/lib/postgresql/data
+      - kong_data:/var/lib/postgresql
     networks:
       - decp-network
 
   kong-migrations:
-    image: kong:latest
+    image: kong:3.9.1
     container_name: decp-kong-db-migrations
     command: kong migrations bootstrap
     depends_on:
@@ -159,7 +159,7 @@ services:
       - decp-network
 
   kong:
-    image: kong:latest
+    image: kong:3.9.1
     container_name: decp-kong
     environment:
       KONG_DATABASE: postgres
