@@ -11,8 +11,6 @@
 # Note: Ensure that the `prometheus.yml` file is correctly configured to scrape metrics from the services.
 # To start the services, run `docker-compose up -d` in the terminal.
 
-version: "3.9"
-
 # Network configuration for the services
 networks:
   decp-network:
@@ -21,16 +19,21 @@ networks:
 # Volumes for data persistence
 volumes:
   postgres_data:
-  minio_data:
   mongo-data:
+  redis-data:
+  kafka_data:
+  minio_data:
   kong_data:
+  prometheus_data:
+  grafana_data:
+  elastic_data:
 
 # Service definitions
 services:
   # ----------------- Core Services -----------------
 
   postgres:
-    image: postgres:18
+    image: postgres:latest
     container_name: decp-postgres
     environment:
       POSTGRES_USER: decp
@@ -41,47 +44,77 @@ services:
       - decp-network
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "decp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mongo:
-    image: mongo:8.2.5
-    container_name: mongo
+    image: mongo:latest
+    container_name: dhcp-mongo
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - mongo-data:/data/db
     ports:
       - "27017:27017"
     networks:
       - decp-network
-    volumes:
-      - mongo-data:/data/db
 
   redis:
-    image: redis:7
+    image: redis:latest
     container_name: decp-redis
     restart: always
+    volumes:
+      - redis-data:/data
     networks:
       - decp-network
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # =========================
+  # KAFKA
+  # =========================
   kafka:
-    image: bitnami/kafka:latest
+    image: apache/kafka:latest
     container_name: decp-kafka
     environment:
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR= 1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR= 1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR= 1
+      - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS= 0
+      - KAFKA_NUM_PARTITIONS= 3
+    volumes:
+      - kafka_data:/kafka/data
     networks:
       - decp-network
     ports:
       - "9092:9092"
+    healthcheck:
+      test:
+        ["CMD", "kafka-topics.sh", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # =========================
+  # OBJECT STORAGE
+  # =========================
   minio:
     image: minio/minio
     container_name: decp-minio
@@ -89,25 +122,41 @@ services:
     environment:
       MINIO_ROOT_USER: minio
       MINIO_ROOT_PASSWORD: minio123
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     volumes:
       - minio_data:/data
     networks:
       - decp-network
+    ports:
+      - "9000:9000"
+      - "9001:9001"
 
+  # =========================
+  # KONG API GATEWAY
+  # =========================
   kong-database:
-    image: postgres:18
+    image: postgres:latest
     container_name: decp-kong-db
     environment:
       POSTGRES_DB: kong
       POSTGRES_USER: kong
       POSTGRES_PASSWORD: kong
-    networks:
-      - decp-network
     volumes:
       - kong_data:/var/lib/postgresql/data
+    networks:
+      - decp-network
+
+  kong-migrations:
+    image: kong:latest
+    container_name: decp-kong-db-migrations
+    command: kong migrations bootstrap
+    depends_on:
+      - kong-database
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_PASSWORD: kong
+    networks:
+      - decp-network
 
   kong:
     image: kong:latest
@@ -124,7 +173,22 @@ services:
       - "8000:8000"
       - "8001:8001"
     depends_on:
-      - kong-database
+      - kong-migrations
+    networks:
+      - decp-network
+
+  # =========================
+  # OBSERVABILITY
+  # =========================
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: decp-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317" # gRPC
+      - "4318:4318" # HTTP
     networks:
       - decp-network
 
@@ -133,6 +197,7 @@ services:
     container_name: decp-prometheus
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
     ports:
       - "9090:9090"
     networks:
@@ -141,6 +206,8 @@ services:
   grafana:
     image: grafana/grafana
     container_name: decp-grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
     ports:
       - "3001:3000"
     networks:
@@ -151,8 +218,11 @@ services:
     container_name: decp-elasticsearch
     environment:
       - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
     ports:
       - "9200:9200"
+    volumes:
+      - elastic_data:/usr/share/elasticsearch/data
     networks:
       - decp-network
 
@@ -166,108 +236,102 @@ services:
     networks:
       - decp-network
 
-  # ----------------- Microservices -----------------
+  # =========================
+  # MICROSERVICES
+  # =========================
   identity-service:
     build: ./services/identity-service
     env_file:
       - ./services/identity-service/.env
+    depends_on:
+      - postgres
+      - kafka
     networks:
       - decp-network
     expose:
       - "3000"
-    depends_on:
-      - postgres
-      - kafka
 
   engagement-service:
     build: ./services/engagement-service
     env_file:
       - ./services/engagement-service/.env
-    networks:
-      - decp-network
-    expose:
-      - "3001"
     depends_on:
       - mongo
       - kafka
       - minio
-
-  career-service:
-    build: ./services/career-service
-    env_file:
-      - ./services/career-service/.env
     networks:
       - decp-network
     expose:
-      - "3002"
-    depends_on:
-      - postgres
-      - kafka
-
-  event-service:
-    build: ./services/event-service
-    env_file:
-      - ./services/event-service/.env
-    networks:
-      - decp-network
-    expose:
-      - "3003"
-    depends_on:
-      - postgres
-      - kafka
+      - "3001"
 
   message-service:
     build: ./services/message-service
     env_file:
       - ./services/message-service/.env
-    networks:
-      - decp-network
-    expose:
-      - "3004"
     depends_on:
       - mongo
       - kafka
+      - redis
+    networks:
+      - decp-network
+    expose:
+      - "3002"
 
   notification-service:
     build: ./services/notification-service
     env_file:
       - ./services/notification-service/.env
+    depends_on:
+      - kafka
+    networks:
+      - decp-network
+    expose:
+      - "3003"
+
+  career-service:
+    build: ./services/career-service
+    env_file:
+      - ./services/career-service/.env
+    depends_on:
+      - postgres
+      - kafka
+    networks:
+      - decp-network
+    expose:
+      - "3004"
+
+  event-service:
+    build: ./services/event-service
+    env_file:
+      - ./services/event-service/.env
+    depends_on:
+      - postgres
+      - kafka
     networks:
       - decp-network
     expose:
       - "3005"
-    depends_on:
-      - kafka
 
   collaboration-service:
     build: ./services/collaboration-service
     env_file:
       - ./services/collaboration-service/.env
+    depends_on:
+      - kafka
+      - redis
     networks:
       - decp-network
     expose:
       - "3006"
-    depends_on:
-      - kafka
 
   analytics-service:
     build: ./services/analytics-service
     env_file:
       - ./services/analytics-service/.env
+    depends_on:
+      - kafka
+      - postgres
     networks:
       - decp-network
     expose:
       - "3007"
-    depends_on:
-      - kafka
-
-  api-gateway:
-    build: ./services/api-gateway
-    env_file:
-      - ./services/api-gateway/.env
-    networks:
-      - decp-network
-    ports:
-      - "4000:4000"
-    depends_on:
-      - kafka
