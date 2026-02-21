@@ -6,3 +6,4 @@ dist
 
 # Ignore environment variables
 .env
+/src/generated/prisma
