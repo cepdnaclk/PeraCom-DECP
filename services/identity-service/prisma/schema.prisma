@@ -28,8 +28,8 @@ enum SocialPlatform {
 }
 
 enum EmploymentType {
-  Full_time  @map("Full-time")
-  Part_time  @map("Part-time")
+  Full_time
+  Part_time
   Internship
   Freelance
   Contract
