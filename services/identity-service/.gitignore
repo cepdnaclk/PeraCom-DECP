@@ -7,3 +7,7 @@ dist
 # Ignore environment variables
 .env
 /src/generated/prisma
+
+
+# Ignore Prisma migration files
+prisma/migrations
