@@ -20,6 +20,10 @@
     "declaration": true,
     "declarationMap": true,
 
+    // NestJS Decorator Support
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
