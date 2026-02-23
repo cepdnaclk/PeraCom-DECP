@@ -4,6 +4,7 @@ import { AuthModule } from "./auth/auth.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
 import { env } from "./config/validateEnv.config.js";
 import { RedisModule } from "./redis/redis.module.js";
+import { PresenceModule } from "./presence/presence.module.js";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RedisModule } from "./redis/redis.module.js";
     PrismaModule,
     RedisModule,
     AuthModule,
+    PresenceModule,
   ],
 })
 export class AppModule {}

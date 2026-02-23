@@ -3,8 +3,6 @@ import { JwtModule } from "@nestjs/jwt";
 import { AuthService } from "./auth.service.js";
 import { AuthController } from "./auth.controller.js";
 import { env } from "../config/validateEnv.config.js";
-import { JwtStrategy } from "./strategies/jwt.strategy.js";
-import { JwtAuthGuard } from "./guards/jwt-auth.guard.js";
 
 @Module({
   imports: [
@@ -13,8 +11,7 @@ import { JwtAuthGuard } from "./guards/jwt-auth.guard.js";
       signOptions: { expiresIn: "1d" },
     }),
   ],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService],
   controllers: [AuthController],
-  exports: [JwtAuthGuard],
 })
 export class AuthModule {}
