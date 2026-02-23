@@ -1,10 +1,11 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { AuthModule } from "./end-points/auth/auth.module.js";
+import { AuthModule } from "./auth/auth.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
 import { env } from "./config/validateEnv.config.js";
 import { RedisModule } from "./redis/redis.module.js";
-import { PresenceModule } from "./end-points/presence/presence.module.js";
+import { PresenceModule } from "./presence/presence.module.js";
+import { UsersModule } from "./users/users.module.js";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PresenceModule } from "./end-points/presence/presence.module.js";
     RedisModule,
     AuthModule,
     PresenceModule,
+    UsersModule,
   ],
 })
 export class AppModule {}
