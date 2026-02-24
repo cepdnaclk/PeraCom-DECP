@@ -96,7 +96,7 @@ model Project {
   id          String    @id @db.Uuid
   user_id     String    @db.Uuid
   title       String    @db.VarChar(255)
-  start_date  DateTime? @db.Date
+  start_date  DateTime  @db.Date
   end_date    DateTime? @db.Date
   description String?   @db.Text
   link        String?   @db.Text
