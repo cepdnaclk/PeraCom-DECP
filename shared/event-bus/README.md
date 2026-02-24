@@ -19,3 +19,13 @@ npm install
 ```typescript
 import { EventBus } from "@decp/event-bus";
 ```
+
+### Note:
+
+Make sure to build the event bus package (in `shared/event-bus` directory) before using it in the microservice. You can do this by running the following command in the terminal:
+
+```bash
+npm run build
+```
+
+This will compile the TypeScript code in the event bus package and generate the necessary files for it to be used in the microservice.
