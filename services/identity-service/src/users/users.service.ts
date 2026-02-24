@@ -9,6 +9,7 @@ import { v7 as uuidv7 } from "uuid";
 import { publishEvent, type BaseEvent } from "@decp/event-bus";
 import type { CreateUserDto } from "./dto/create-user.dto.js";
 import type { UpdateProfileDto } from "./dto/update-profile.dto.js";
+import type { UpdateUserAdminDto } from "./dto/update-admin.dto.js";
 
 @Injectable()
 export class UsersService {
@@ -308,39 +309,17 @@ export class UsersService {
       throw new BadRequestException("You can only update your own profile");
     }
 
-    // 2. Check if user exists
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.id, is_active: true },
-    });
-    if (!user) throw new NotFoundException("User not found");
+    // 2. Prepare update data (only allow certain fields to be updated)
+    const { id, ...updateData } = payload;
 
-    // 3. Only allow updating permitted fields
-    const updatableFields = [
-      "first_name",
-      "middle_name",
-      "last_name",
-      "residence",
-      "profile_pic",
-      "header_img",
-      "headline",
-      "bio",
-    ];
-    const updateData: Record<string, any> = {};
-    for (const field of updatableFields) {
-      if (payload[field as keyof UpdateProfileDto] !== undefined) {
-        updateData[field] = payload[field as keyof UpdateProfileDto];
-      }
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      throw new BadRequestException("No valid fields provided for update");
-    }
-
-    // 4. Update user
+    // 3. Update user
     const updatedUser = await this.prisma.user.update({
-      where: { id: payload.id, is_active: true },
+      where: { id: id, is_active: true },
       data: updateData,
     });
+
+    // 4. If user doesn't exist, throw an error
+    if (!updatedUser) throw new NotFoundException("User not found");
 
     // 5. Emit Kafka event
     const profileUpdatedEvent: BaseEvent<any> = {
@@ -361,6 +340,54 @@ export class UsersService {
     await publishEvent("identity.user.events", profileUpdatedEvent);
 
     // 5. Return the updated profile
+    return updatedUser;
+  }
+
+  // ======================================
+  // ADMIN UPDATE USER INFO
+  // ======================================
+  async updateUserByAdmin(
+    adminId: string,
+    correlationId: string,
+    userData: UpdateUserAdminDto,
+  ) {
+    // 1. Admin cannot update their own profile through this endpoint
+    if (adminId === userData.id) {
+      throw new BadRequestException(
+        "Admin cannot update their own profile here",
+      );
+    }
+
+    // 2. Prepare update data (only allow certain fields to be updated)
+    const { id, ...data } = userData;
+
+    // 3. Update the existing user in the database
+    const updatedUser = await this.prisma.user.update({
+      where: { id, is_active: true },
+      data: data,
+    });
+
+    // 4. If user doesn't exist, throw an error
+    if (!updatedUser) throw new NotFoundException("User not found");
+
+    // 5. Emit Kafka event
+    const userUpdatedEvent: BaseEvent<any> = {
+      eventId: uuidv7(),
+      eventType: "identity.admin_user.updated",
+      eventVersion: "1.0",
+      timestamp: new Date().toISOString(),
+      producer: "identity-service",
+      correlationId: correlationId,
+      actorId: adminId,
+      data: {
+        user_id: updatedUser.id,
+        first_name: updatedUser.first_name,
+        last_name: updatedUser.last_name,
+        email: updatedUser.email,
+      },
+    };
+    await publishEvent("identity.user.events", userUpdatedEvent);
+
     return updatedUser;
   }
 }
