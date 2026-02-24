@@ -152,7 +152,6 @@ export class UsersService {
     // 4. Insert all valid students in a single query
     const created = await this.prisma.user.createMany({
       data: usersToInsert,
-      skipDuplicates: true, // Extra safety net
     });
 
     // 5. Broadcast a SINGLE Kafka event for the entire batch
