@@ -4,6 +4,7 @@ export interface BaseEvent<T> {
   eventVersion: string;
   timestamp: string;
   producer: string;
+  actorId?: string;
   correlationId?: string;
   data: T;
 }
