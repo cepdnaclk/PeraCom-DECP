@@ -11,6 +11,8 @@ import { PrismaModule } from "./prisma/prisma.module.js";
 import { RedisModule } from "./redis/redis.module.js";
 import { PresenceModule } from "./presence/presence.module.js";
 import { UsersModule } from "./users/users.module.js";
+import { SocialModule } from "./social-media/social.module.js";
+import { ProjectsModule } from "./projects/projects.module.js";
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { UsersModule } from "./users/users.module.js";
     AuthModule,
     PresenceModule,
     UsersModule,
+    SocialModule,
+    ProjectsModule,
   ],
 })
 export class AppModule implements NestModule {
