@@ -291,6 +291,7 @@ services:
       - ./services/notification-service/.env
     depends_on:
       - kafka
+      - mongo
     networks:
       - decp-network
     expose:
