@@ -15,6 +15,7 @@ import { SocialModule } from "./social-media/social.module.js";
 import { ProjectsModule } from "./projects/projects.module.js";
 import { ExperienceModule } from "./experience/experience.module.js";
 import { EducationModule } from "./education/education.module.js";
+import { PublicationModule } from "./publication/publication.module.js";
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { EducationModule } from "./education/education.module.js";
     ProjectsModule,
     ExperienceModule,
     EducationModule,
+    PublicationModule,
   ],
 })
 export class AppModule implements NestModule {
