@@ -240,6 +240,7 @@ services:
   # MICROSERVICES
   # =========================
   identity-service:
+    container_name: decp-identity-service
     build:
       context: .
       dockerfile: ./services/identity-service/Dockerfile
@@ -254,6 +255,7 @@ services:
       - "3000"
 
   engagement-service:
+    container_name: decp-engagement-service
     build:
       context: .
       dockerfile: ./services/engagement-service/Dockerfile
@@ -269,6 +271,7 @@ services:
       - "3001"
 
   message-service:
+    container_name: decp-message-service
     build:
       context: .
       dockerfile: ./services/message-service/Dockerfile
@@ -284,6 +287,7 @@ services:
       - "3002"
 
   notification-service:
+    container_name: decp-notification-service
     build:
       context: .
       dockerfile: ./services/notification-service/Dockerfile
@@ -297,6 +301,7 @@ services:
       - "3003"
 
   career-service:
+    container_name: decp-career-service
     build:
       context: .
       dockerfile: ./services/career-service/Dockerfile
@@ -311,6 +316,7 @@ services:
       - "3004"
 
   event-service:
+    container_name: decp-event-service
     build:
       context: .
       dockerfile: ./services/event-service/Dockerfile
@@ -325,6 +331,7 @@ services:
       - "3005"
 
   collaboration-service:
+    container_name: decp-collab-service
     build:
       context: .
       dockerfile: ./services/collaboration-service/Dockerfile
@@ -339,6 +346,7 @@ services:
       - "3006"
 
   analytics-service:
+    container_name: decp-analytics-service
     build:
       context: .
       dockerfile: ./services/analytics-service/Dockerfile
