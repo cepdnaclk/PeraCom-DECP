@@ -31,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // 3. If they pass, attach them to the request
     return {
-      userId: payload.sub,
+      sub: payload.sub,
       role: payload.role,
     };
   }
