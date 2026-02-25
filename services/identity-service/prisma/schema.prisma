@@ -78,7 +78,7 @@ model SocialLink {
   id       String         @id @db.Uuid
   user_id  String         @db.Uuid
   platform SocialPlatform
-  url      String         @db.Text
+  url      String         @db.Text @unique
 
   created_at DateTime @default(now()) @db.Timestamptz()
 
