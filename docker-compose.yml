@@ -240,7 +240,9 @@ services:
   # MICROSERVICES
   # =========================
   identity-service:
-    build: ./services/identity-service
+    build:
+      context: .
+      dockerfile: ./services/identity-service/Dockerfile
     env_file:
       - ./services/identity-service/.env
     depends_on:
@@ -252,7 +254,9 @@ services:
       - "3000"
 
   engagement-service:
-    build: ./services/engagement-service
+    build:
+      context: .
+      dockerfile: ./services/engagement-service/Dockerfile
     env_file:
       - ./services/engagement-service/.env
     depends_on:
@@ -265,7 +269,9 @@ services:
       - "3001"
 
   message-service:
-    build: ./services/message-service
+    build:
+      context: .
+      dockerfile: ./services/message-service/Dockerfile
     env_file:
       - ./services/message-service/.env
     depends_on:
@@ -278,7 +284,9 @@ services:
       - "3002"
 
   notification-service:
-    build: ./services/notification-service
+    build:
+      context: .
+      dockerfile: ./services/notification-service/Dockerfile
     env_file:
       - ./services/notification-service/.env
     depends_on:
@@ -289,7 +297,9 @@ services:
       - "3003"
 
   career-service:
-    build: ./services/career-service
+    build:
+      context: .
+      dockerfile: ./services/career-service/Dockerfile
     env_file:
       - ./services/career-service/.env
     depends_on:
@@ -301,7 +311,9 @@ services:
       - "3004"
 
   event-service:
-    build: ./services/event-service
+    build:
+      context: .
+      dockerfile: ./services/event-service/Dockerfile
     env_file:
       - ./services/event-service/.env
     depends_on:
@@ -313,7 +325,9 @@ services:
       - "3005"
 
   collaboration-service:
-    build: ./services/collaboration-service
+    build:
+      context: .
+      dockerfile: ./services/collaboration-service/Dockerfile
     env_file:
       - ./services/collaboration-service/.env
     depends_on:
@@ -325,7 +339,9 @@ services:
       - "3006"
 
   analytics-service:
-    build: ./services/analytics-service
+    build:
+      context: .
+      dockerfile: ./services/analytics-service/Dockerfile
     env_file:
       - ./services/analytics-service/.env
     depends_on:
