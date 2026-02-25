@@ -16,7 +16,7 @@ export class ProjectsService {
   // ==========================================
   // VIEW ALL PROJECTS FOR USER
   // ==========================================
-  async viewProjects(userId: string, correlationId: string) {
+  async viewProjects(actorId: string, correlationId: string, userId: string) {
     // 1. Fetch all projects for the user, ordered by creation date (newest first)
     const projects = await this.prisma.project.findMany({
       where: { user_id: userId },
@@ -32,7 +32,7 @@ export class ProjectsService {
         timestamp: new Date().toISOString(),
         producer: "identity-service",
         correlationId: correlationId,
-        actorId: userId,
+        actorId: actorId,
         data: {
           user_id: userId,
           count: projects.length,
@@ -107,6 +107,8 @@ export class ProjectsService {
     } catch (error) {
       console.error("Failed to publish project.created event:", error);
     }
+
+    // 5. Return created project
     return { status: "project_created", project: newProject };
   }
 
@@ -152,6 +154,8 @@ export class ProjectsService {
     } catch (error) {
       console.error("Failed to publish project.deleted event:", error);
     }
+
+    // 5. Return success response
     return { status: "project_deleted", id: deletedProject.id };
   }
 
@@ -197,10 +201,7 @@ export class ProjectsService {
     // 4. Create update data object with trimmed strings
     const updateData: Record<string, any> = { ...data };
     for (const key in updateData) {
-      if (
-        typeof updateData[key] === "string" &&
-        updateData[key].trim() !== "id"
-      ) {
+      if (typeof updateData[key] === "string") {
         updateData[key] = updateData[key].trim();
       }
     }

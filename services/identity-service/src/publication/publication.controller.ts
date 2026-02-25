@@ -11,70 +11,70 @@ import {
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard.js";
 import { CorrelationId } from "../auth/decorators/correlation-id.decorator.js";
 import { ActorId } from "../auth/decorators/actor.decorator.js";
-import type { ExperienceService } from "./experience.service.js";
 import type {
-  NewExperienceDto,
-  UpdateExperienceDto,
-} from "./dto/experience.dto.js";
+  NewPublicationDto,
+  UpdatePublicationDto,
+} from "./dto/publication.dto.js";
+import type { PublicationService } from "./publication.service.js";
 
-@Controller("experience")
-export class ExperienceController {
-  constructor(private experienceService: ExperienceService) {}
+@Controller("publication")
+export class PublicationController {
+  constructor(private publicationService: PublicationService) {}
 
-  // POST /experience
+  // POST /publication
   @UseGuards(JwtAuthGuard)
   @Post()
-  createExperience(
+  createPublication(
     @ActorId() actorId: string,
     @CorrelationId() correlationId: string,
-    @Body() payload: NewExperienceDto,
+    @Body() payload: NewPublicationDto,
   ) {
-    return this.experienceService.createExperience(
+    return this.publicationService.createPublication(
       actorId,
       correlationId,
       payload,
     );
   }
 
-  // PATCH /experience
+  // PATCH /publication
   @UseGuards(JwtAuthGuard)
   @Patch()
-  updateExperience(
+  updatePublication(
     @ActorId() actorId: string,
     @CorrelationId() correlationId: string,
-    @Body() payload: UpdateExperienceDto,
+    @Body() payload: UpdatePublicationDto,
   ) {
-    return this.experienceService.updateExperience(
+    return this.publicationService.updatePublication(
       actorId,
       correlationId,
       payload,
     );
   }
 
-  // DELETE /experience/:id
+  // DELETE /publication/:id
   @UseGuards(JwtAuthGuard)
   @Delete(":id")
-  deleteExperience(
+  deletePublication(
     @ActorId() actorId: string,
     @CorrelationId() correlationId: string,
-    @Param("id") experienceId: string,
+    @Param("id") publicationId: string,
   ) {
-    return this.experienceService.deleteExperience(
+    return this.publicationService.deletePublication(
       actorId,
       correlationId,
-      experienceId,
+      publicationId,
     );
   }
 
-  // GET /experience/:id
+  // GET /publication/:id
   @UseGuards(JwtAuthGuard)
   @Get(":id")
-  getAllExperience(
+  getAllPublications(
     @ActorId() actorId: string,
     @CorrelationId() correlationId: string,
     @Param("id") userId: string,
   ) {
-    return this.experienceService.viewExperience(
+    return this.publicationService.viewPublications(
       actorId,
       correlationId,
       userId,
