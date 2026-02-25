@@ -5,6 +5,6 @@ export const ActorId = createParamDecorator(
     const request = ctx.switchToHttp().getRequest();
 
     // Grabs the userId exactly as you defined it in your JwtStrategy!
-    return request.user?.userId;
+    return request.user?.sub;
   },
 );
