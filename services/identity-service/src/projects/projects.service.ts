@@ -154,6 +154,8 @@ export class ProjectsService {
     } catch (error) {
       console.error("Failed to publish project.deleted event:", error);
     }
+
+    // 5. Return success response
     return { status: "project_deleted", id: deletedProject.id };
   }
 
@@ -199,10 +201,7 @@ export class ProjectsService {
     // 4. Create update data object with trimmed strings
     const updateData: Record<string, any> = { ...data };
     for (const key in updateData) {
-      if (
-        typeof updateData[key] === "string" &&
-        updateData[key].trim() !== "id"
-      ) {
+      if (typeof updateData[key] === "string") {
         updateData[key] = updateData[key].trim();
       }
     }

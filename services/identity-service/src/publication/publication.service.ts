@@ -208,10 +208,7 @@ export class PublicationService {
     // 4. Prepare update data (trim strings)
     const updateData: Record<string, any> = { ...data };
     for (const key in updateData) {
-      if (
-        typeof updateData[key] === "string" &&
-        updateData[key].trim() !== "id"
-      ) {
+      if (typeof updateData[key] === "string") {
         updateData[key] = updateData[key].trim();
       }
     }

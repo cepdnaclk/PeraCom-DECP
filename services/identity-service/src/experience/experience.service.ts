@@ -56,6 +56,7 @@ export class ExperienceService {
     correlationId: string,
     payload: NewExperienceDto,
   ) {
+    // 1. Prevent duplicate (same user, same title, same company, same start_date)
     const existing = await this.prisma.experience.findFirst({
       where: {
         user_id: userId,
@@ -69,6 +70,8 @@ export class ExperienceService {
         "An experience with the same title, company, and start date already exists for this user",
       );
     }
+
+    // 2. Create the experience
     const newExperience = await this.prisma.experience.create({
       data: {
         id: uuidv7(),
@@ -82,9 +85,13 @@ export class ExperienceService {
         description: payload.description ?? null,
       },
     });
+
+    // 3. If creation failed, throw an error
     if (!newExperience) {
       throw new BadRequestException("Failed to create experience");
     }
+
+    // 4. Emit event for experience creation
     try {
       const createdExperienceEvent: BaseEvent<any> = {
         eventId: uuidv7(),
@@ -104,6 +111,8 @@ export class ExperienceService {
     } catch (error) {
       console.error("Failed to publish experience.created event:", error);
     }
+
+    // 5. Return success response with the created experience
     return { status: "experience_created", experience: newExperience };
   }
 
@@ -115,8 +124,12 @@ export class ExperienceService {
     correlationId: string,
     payload: UpdateExperienceDto,
   ) {
+    // 1. Extract projectId and updateData from payload
+    const { id, ...data } = payload;
+
+    // 2. Validate experience record exists and belongs to user
     const experience = await this.prisma.experience.findUnique({
-      where: { id: payload.id },
+      where: { id },
     });
     if (!experience) {
       throw new NotFoundException("Experience not found");
@@ -124,14 +137,16 @@ export class ExperienceService {
     if (experience.user_id !== userId) {
       throw new ConflictException("You do not own this experience");
     }
+
+    // 3. If title, company, or start_date is being updated, check for duplicates
     if (payload.title || payload.company || payload.start_date) {
       const duplicate = await this.prisma.experience.findFirst({
         where: {
           user_id: userId,
-          title: payload.title || experience.title,
-          company: payload.company || experience.company,
+          title: payload.title?.trim() || experience.title,
+          company: payload.company?.trim() || experience.company,
           start_date: payload.start_date || experience.start_date,
-          NOT: { id: payload.id },
+          NOT: { id },
         },
       });
       if (duplicate) {
@@ -140,18 +155,27 @@ export class ExperienceService {
         );
       }
     }
+
+    // 4. Create update data object with trimmed strings
+    const updateData: Record<string, any> = { ...data };
+    for (const key in updateData) {
+      if (typeof updateData[key] === "string") {
+        updateData[key] = updateData[key].trim();
+      }
+    }
+
+    // 5. Update the experience
     const updatedExperience = await this.prisma.experience.update({
       where: { id: payload.id },
-      data: {
-        title: payload.title || experience.title,
-        emp_type: payload.emp_type || experience.emp_type,
-        company: payload.company || experience.company,
-        start_date: payload.start_date || experience.start_date,
-        end_date: payload.end_date ?? experience.end_date,
-        location: payload.location ?? experience.location,
-        description: payload.description ?? experience.description,
-      },
+      data: updateData,
     });
+
+    // 6. If update failed, throw an error
+    if (!updatedExperience) {
+      throw new NotFoundException("Experience not found");
+    }
+
+    // 7. Emit event for experience update
     try {
       const updatedExperienceEvent: BaseEvent<any> = {
         eventId: uuidv7(),
@@ -171,6 +195,8 @@ export class ExperienceService {
     } catch (error) {
       console.error("Failed to publish experience.updated event:", error);
     }
+
+    // 8. Return success response with the updated experience
     return { status: "experience_updated", experience: updatedExperience };
   }
 
@@ -216,6 +242,8 @@ export class ExperienceService {
     } catch (error) {
       console.error("Failed to publish experience.deleted event:", error);
     }
+
+    // 5. Return success response
     return { status: "experience_deleted", id: experienceId };
   }
 }
