@@ -18,6 +18,7 @@ function getValidatedEnv() {
     "REDIS_HOST",
     "REDIS_PORT",
     "TTL_SECONDS",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
   ] as const;
   const missing = requiredVars.filter((key) => !process.env[key]);
 
@@ -41,6 +42,8 @@ function getValidatedEnv() {
     REDIS_HOST: process.env.REDIS_HOST as string,
     REDIS_PORT: parseInt(process.env.REDIS_PORT as string, 10),
     TTL_SECONDS: parseInt(process.env.TTL_SECONDS as string, 10),
+    OTEL_EXPORTER_OTLP_ENDPOINT: process.env
+      .OTEL_EXPORTER_OTLP_ENDPOINT as string,
   };
 }
 

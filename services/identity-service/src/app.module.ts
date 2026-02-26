@@ -16,6 +16,7 @@ import { ProjectsModule } from "./projects/projects.module.js";
 import { ExperienceModule } from "./experience/experience.module.js";
 import { EducationModule } from "./education/education.module.js";
 import { PublicationModule } from "./publication/publication.module.js";
+import { HealthModule } from "./health/health.module.js";
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { PublicationModule } from "./publication/publication.module.js";
     }),
     PrismaModule,
     RedisModule,
+    HealthModule,
     AuthModule,
     PresenceModule,
     UsersModule,
