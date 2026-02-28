@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -249,5 +250,129 @@ export class PostsService {
 
     // 10. Return the created post
     return savedPost;
+  }
+
+  // =================================================
+  // Delete Post by Owner
+  // =================================================
+  async deletePostByOwner(
+    actorId: string,
+    correlationId: string,
+    postId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // 1. Validate postId format
+    if (!Types.ObjectId.isValid(postId)) {
+      throw new BadRequestException("Invalid post ID");
+    }
+
+    // 2. Fetch the post to verify ownership
+    const post = await this.postModel.findById(postId).exec();
+
+    // 3. Ensure it exists
+    if (!post) {
+      throw new NotFoundException("Post not found");
+    }
+
+    // 4. Strict ownership check
+    if (post.authorId !== actorId) {
+      console.warn(
+        `[CorrID: ${correlationId}] SECURITY: User ${actorId} attempted to delete post ${postId} owned by ${post.authorId}`,
+      );
+      throw new ForbiddenException(
+        "You do not have permission to delete this post",
+      );
+    }
+
+    // 5. Perform the deletion
+    await this.postModel.findByIdAndDelete(postId).exec();
+
+    // 6. Increment Prometheus metric
+    this.postCounter.inc();
+
+    // 7. Emit an event for further processing
+    const deleteEvent: BaseEvent<any> = {
+      eventId: uuidv7(),
+      eventType: "engagement.post.deleted",
+      eventVersion: "1.0",
+      timestamp: new Date().toISOString(),
+      producer: "engagement-service",
+      correlationId: correlationId,
+      actorId: actorId,
+      data: {
+        post_id: postId,
+        author_id: post.authorId,
+        deleted_by_admin: false,
+      },
+    };
+
+    publishEvent("engagement.events", deleteEvent).catch((err) => {
+      console.error(
+        `[TraceID: ${correlationId}] Failed to publish post deleted event:`,
+        err.message,
+      );
+    });
+
+    // 8. Return success
+    return {
+      success: true,
+      message: "Post successfully deleted",
+    };
+  }
+
+  // =================================================
+  // Delete Post as Admin
+  // =================================================
+  async deletePostAsAdmin(
+    actorId: string,
+    correlationId: string,
+    postId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // 1. Validate postId format
+    if (!Types.ObjectId.isValid(postId)) {
+      throw new BadRequestException("Invalid post ID");
+    }
+
+    // 2. Fetch the post to capture metadata before deletion
+    const post = await this.postModel.findById(postId).exec();
+
+    // 3. Ensure it exists
+    if (!post) {
+      throw new NotFoundException("Post not found");
+    }
+
+    // 4. Perform the deletion (admin bypasses ownership check)
+    await this.postModel.findByIdAndDelete(postId).exec();
+
+    // 5. Increment Prometheus metric
+    this.postCounter.inc();
+
+    // 6. Emit an event for further processing
+    const deleteEvent: BaseEvent<any> = {
+      eventId: uuidv7(),
+      eventType: "engagement.post.deleted",
+      eventVersion: "1.0",
+      timestamp: new Date().toISOString(),
+      producer: "engagement-service",
+      correlationId: correlationId,
+      actorId: actorId,
+      data: {
+        post_id: postId,
+        author_id: post.authorId,
+        deleted_by_admin: true,
+      },
+    };
+
+    publishEvent("engagement.events", deleteEvent).catch((err) => {
+      console.error(
+        `[TraceID: ${correlationId}] Failed to publish admin post deleted event:`,
+        err.message,
+      );
+    });
+
+    // 7. Return success
+    return {
+      success: true,
+      message: "Post successfully deleted by admin",
+    };
   }
 }
