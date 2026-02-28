@@ -14,6 +14,11 @@ function getValidatedEnv() {
     "OTEL_EXPORTER_OTLP_ENDPOINT",
     "MONGO_URI",
     "LOG_LEVEL",
+    "MINIO_ENDPOINT",
+    "MINIO_PORT",
+    "MINIO_ACCESS_KEY",
+    "MINIO_SECRET_KEY",
+    "MINIO_PUBLIC_URL",
   ] as const;
   const missing = requiredVars.filter((key) => !process.env[key]);
 
@@ -34,6 +39,11 @@ function getValidatedEnv() {
       .OTEL_EXPORTER_OTLP_ENDPOINT as string,
     MONGO_URI: process.env.MONGO_URI as string,
     LOG_LEVEL: process.env.LOG_LEVEL as string,
+    MINIO_ENDPOINT: process.env.MINIO_ENDPOINT as string,
+    MINIO_PORT: process.env.MINIO_PORT as string,
+    MINIO_ACCESS_KEY: process.env.MINIO_ACCESS_KEY as string,
+    MINIO_SECRET_KEY: process.env.MINIO_SECRET_KEY as string,
+    MINIO_PUBLIC_URL: process.env.MINIO_PUBLIC_URL as string,
   };
 }
 
