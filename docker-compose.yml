@@ -302,6 +302,7 @@ services:
       - ./services/career-service/.env.prod
     depends_on:
       - mongo
+      - minio
       - kafka
     networks:
       - decp-network
