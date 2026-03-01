@@ -1,6 +1,18 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
+import { pino } from "pino";
+
+const bootLogger = pino({
+  name: "EnvValidator",
+  ...(process.env.ENVIRONMENT !== "production" && {
+    transport: {
+      target: "pino-pretty",
+      options: { colorize: true, singleLine: true },
+    },
+  }),
+});
+
 function getValidatedEnv() {
   // 1. Define strictly what is required to boot the app
   const requiredVars = [
@@ -18,10 +30,12 @@ function getValidatedEnv() {
     "MAX_FILE_SIZE_MB",
     "ENVIRONMENT",
   ] as const;
+
   const missing = requiredVars.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
-    console.log("Current OS Env Keys:", Object.keys(process.env));
+    bootLogger.fatal({ missing }, "Missing required environment variables");
+
     throw new Error(
       `Missing required environment variables: ${missing.join(", ")}`,
     );

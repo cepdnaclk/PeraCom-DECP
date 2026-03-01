@@ -1,12 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import { Client } from "minio";
 import { env } from "../config/validateEnv.config.js";
+import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
 @Injectable()
 export class MinioService {
   private minioClient: Client;
 
-  constructor() {
+  constructor(
+    @InjectPinoLogger(MinioService.name)
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.info("Initializing Minio client");
     this.minioClient = new Client({
       endPoint: env.MINIO_ENDPOINT!,
       port: Number(env.MINIO_PORT),
@@ -42,9 +47,9 @@ export class MinioService {
     } catch (error) {
       // We log the error but don't crash the app,
       // as file deletion failures shouldn't stop the user experience.
-      console.error(
-        `[MinioService] Failed to delete object ${objectName}:`,
-        error,
+      this.logger.error(
+        { error, objectName },
+        "Failed to delete object from Minio",
       );
       throw error;
     }
