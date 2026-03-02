@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { Client } from "minio";
 import { env } from "../config/validateEnv.config.js";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
@@ -21,32 +21,70 @@ export class MinioService {
     });
   }
 
-  async uploadFile(
+  // ========================================================================
+  // PRIVATE FILE UPLOADS (Used by Career Service for Resumes)
+  // ========================================================================
+  async uploadPrivateFile(
     bucket: string,
     objectName: string,
     buffer: Buffer,
     mimeType: string,
-  ) {
-    await this.minioClient.putObject(
-      bucket,
-      objectName,
-      buffer,
-      buffer.length,
-      {
-        "Content-Type": mimeType,
-      },
-    );
+  ): Promise<string> {
+    try {
+      await this.minioClient.putObject(
+        bucket,
+        objectName,
+        buffer,
+        buffer.length,
+        { "Content-Type": mimeType },
+      );
 
-    return `${env.MINIO_PUBLIC_URL}/${bucket}/${objectName}`;
+      return objectName;
+    } catch (error) {
+      this.logger.error(
+        { error, bucket, objectName },
+        "Failed to upload private file to Minio",
+      );
+      throw new InternalServerErrorException("File upload failed");
+    }
   }
 
-  async deleteFile(bucketName: string, objectName: string): Promise<void> {
+  // ========================================================================
+  // GENERATE PRESIGNED URL (For Secure, Temporary File Access)
+  // ========================================================================
+  async generatePresignedGetUrl(
+    bucketName: string,
+    objectName: string,
+  ): Promise<string> {
     try {
-      // The official Minio SDK method for deleting files
+      // ✨ Asks the Minio server to cryptographically sign a temporary URL
+      const url = await this.minioClient.presignedGetObject(
+        bucketName,
+        objectName,
+        env.VIEW_TIME_LIMIT_MINUTES * 60, // Default: 15 minutes
+      );
+      return url;
+    } catch (error) {
+      this.logger.error(
+        { error, bucketName, objectName },
+        "Failed to generate presigned URL",
+      );
+      throw new InternalServerErrorException(
+        "Failed to generate secure file link",
+      );
+    }
+  }
+
+  // ========================================================================
+  // DELETE FILE (Used for Orphan Cleanup & Deletions)
+  // ========================================================================
+  async deletePrivateFile(
+    bucketName: string,
+    objectName: string,
+  ): Promise<void> {
+    try {
       await this.minioClient.removeObject(bucketName, objectName);
     } catch (error) {
-      // We log the error but don't crash the app,
-      // as file deletion failures shouldn't stop the user experience.
       this.logger.error(
         { error, objectName },
         "Failed to delete object from Minio",

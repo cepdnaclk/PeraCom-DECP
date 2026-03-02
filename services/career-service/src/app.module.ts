@@ -12,6 +12,7 @@ import { JwtStrategy } from "./auth/strategies/jwt.strategy.js";
 import { HealthModule } from "./health/health.module.js";
 import { MetricsModule } from "./metrics/metrics.module.js";
 import { JobsModule } from "./jobs/jobs.module.js";
+import { ApplicationsModule } from "./applications/applications.module.js";
 import { LoggerModule } from "nestjs-pino";
 import { MongooseModule } from "@nestjs/mongoose";
 
@@ -53,6 +54,7 @@ import { MongooseModule } from "@nestjs/mongoose";
     HealthModule,
     MetricsModule,
     JobsModule,
+    ApplicationsModule,
   ],
   providers: [JwtStrategy, JwtAuthGuard, RolesGuard],
   exports: [JwtAuthGuard, RolesGuard],
