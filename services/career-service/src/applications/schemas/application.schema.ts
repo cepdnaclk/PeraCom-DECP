@@ -13,7 +13,7 @@ export enum ApplicationStatus {
   WITHDRAWN = "WITHDRAWN",
 }
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, optimisticConcurrency: true })
 export class Application {
   @Prop({ type: Types.ObjectId, required: true, ref: "Job" })
   jobId!: Types.ObjectId;
