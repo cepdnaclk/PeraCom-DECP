@@ -1,13 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
-  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
-import { Model, Connection, Types } from "mongoose";
+import { Types } from "mongoose";
+import type { Connection, Model } from "mongoose";
 import {
   Project,
   ProjectVisibility,
@@ -42,7 +42,7 @@ export class ProjectsService {
     @InjectModel(ProjectInvitation.name)
     private readonly inviteModel: Model<ProjectInvitation>,
 
-    @InjectConnection() private readonly connection: Connection, // ✨ Required for Transactions
+    @InjectConnection() private readonly connection: Connection,
 
     @InjectMetric("collaboration_projects_created_total")
     private projectCreatedCounter: Counter<string>,
@@ -561,7 +561,7 @@ export class ProjectsService {
       // If myRole is null, the frontend knows to show a "Join Project" button.
       // If myRole is 'OWNER', the frontend knows to show the "Settings" and "Delete" buttons.
       // If
-      myRole: ()=>{
+      myRole: () => {
         if (memberRecord) return memberRecord.role;
         if (pendingInvite) return `PENDING_${pendingInvite.type}`;
         return null;
