@@ -43,23 +43,29 @@ export class ProjectsController {
   // PATCH /projects
   @UseGuards(JwtAuthGuard, ProjectAccessGuard)
   @ProjectRoles(MemberRole.OWNER, MemberRole.EDITOR)
-  @Patch()
+  @Patch(":projectId")
   async updateProject(
     @ActorId() actorId: string,
     @CorrelationId() correlationId: string,
+    @Param("projectId") projectId: string,
     @Body() payload: UpdateProjectDto,
   ) {
-    return this.projectsService.updateProject(actorId, correlationId, payload);
+    return this.projectsService.updateProject(
+      actorId,
+      correlationId,
+      projectId,
+      payload,
+    );
   }
 
-  // DELETE /projects/admin/:id
+  // DELETE /projects/admin/:projectId
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
-  @Delete("admin/:id")
+  @Delete("admin/:projectId")
   async removeProjectByAdmin(
     @ActorId() actorId: string,
     @CorrelationId() correlationId: string,
-    @Param("id") projectId: string,
+    @Param("projectId") projectId: string,
   ) {
     return this.projectsService.removeProject(
       actorId,
@@ -68,14 +74,14 @@ export class ProjectsController {
     );
   }
 
-  // DELETE /projects/:id
+  // DELETE /projects/:projectId
   @UseGuards(JwtAuthGuard, ProjectAccessGuard)
   @ProjectRoles(MemberRole.OWNER)
-  @Delete(":id")
+  @Delete("admin/:projectId")
   async archiveProject(
     @ActorId() actorId: string,
     @CorrelationId() correlationId: string,
-    @Param("id") projectId: string,
+    @Param("projectId") projectId: string,
   ) {
     return this.projectsService.removeProject(
       actorId,

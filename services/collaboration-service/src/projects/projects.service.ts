@@ -127,9 +127,11 @@ export class ProjectsService {
   async updateProject(
     actorId: string,
     correlationId: string,
-    dto: UpdateProjectDto,
+    projectId: string,
+    payload: UpdateProjectDto,
   ) {
-    const { projectId, ...payload } = dto;
+    if (!Types.ObjectId.isValid(projectId))
+      throw new BadRequestException("Invalid project ID");
 
     // 1. Fetch the project, ensuring it hasn't been soft-deleted
     const project = await this.projectModel

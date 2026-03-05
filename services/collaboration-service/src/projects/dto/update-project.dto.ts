@@ -5,16 +5,10 @@ import {
   MaxLength,
   IsInt,
   Min,
-  IsNotEmpty,
-  IsMongoId,
 } from "class-validator";
 import { ProjectVisibility } from "../schemas/project.schema.js";
 
 export class UpdateProjectDto {
-  @IsNotEmpty()
-  @IsMongoId()
-  projectId!: string;
-
   @IsString()
   @IsOptional()
   @MaxLength(120)
