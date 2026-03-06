@@ -5,11 +5,11 @@ import {
 } from "@nestjs/common";
 import { createConsumer, startConsuming } from "@decp/event-bus";
 import type { BaseEvent, Consumer } from "@decp/event-bus";
-import { env } from "../config/validateEnv.config.js";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
 
 // We will build this service next, it holds the actual business logic
 import { NotificationProcessorService } from "../processor/notification-processor.service.js";
+import { env } from "../config/validateEnv.config.js";
 
 @Injectable()
 export class NotificationConsumerService
