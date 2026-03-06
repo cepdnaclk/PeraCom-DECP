@@ -1,41 +1,34 @@
 # ------------- Stage 1 — Builder Stage -------------
 
-# Use the official Node.js image as the base image for the builder stage
 FROM node:24-alpine AS builder
 
-# Set the working directory in the container (inside the docker container, not the host machine)
 WORKDIR /app
 
-# Copy package.json and package-lock.json to the working directory
-COPY package*.json ./
+# Copy the shared event-bus so npm can resolve @decp/event-bus
+COPY shared ./shared
 
-# Install dependencies (including dev dependencies for building)
+WORKDIR /app/services/notification-service
+
+COPY services/notification-service/package*.json ./
+
 RUN npm install
 
-# Copy the rest of the application code to the working directory
-COPY . .
+COPY services/notification-service ./
 
-# Build the application (this will create the dist directory with the compiled code)
 RUN npm run build
-
-
 
 # -------------- Stage 2 — Production Stage -------------
 
-# Use a smaller Node.js image for the production stage
 FROM node:24-alpine
 
-# Set the working directory in the container
-WORKDIR /app
+WORKDIR /app/services/notification-service
 
-# Copy only the necessary files from the builder stage to the production stage
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/shared /app/shared
 
-# Copy package.json and package-lock.json to the working directory
-COPY package*.json ./
+COPY --from=builder /app/services/notification-service/dist ./dist
 
-# Install only production dependencies (omit dev dependencies)
+COPY services/notification-service/package*.json ./
+
 RUN npm install --omit=dev
 
-# Run the application using the compiled code in the dist directory
 CMD ["node", "dist/index.js"]
