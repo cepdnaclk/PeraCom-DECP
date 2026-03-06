@@ -18,6 +18,11 @@ import {
   MemberRole,
   type ProjectMemberDocument,
 } from "../members/schemas/project-member.schema.js";
+import {
+  ProjectInvitation,
+  InvitationStatus,
+  type ProjectInvitationDocument,
+} from "../invitations/schemas/project-invitation.schema.js";
 import { CreateProjectDto } from "./dto/create-project.dto.js";
 import { InjectMetric } from "@willsoto/nestjs-prometheus/dist/injector.js";
 import type { Counter } from "prom-client";
@@ -25,10 +30,6 @@ import { publishEvent, type BaseEvent } from "@decp/event-bus";
 import { v7 as uuidv7 } from "uuid";
 import { PinoLogger, InjectPinoLogger } from "nestjs-pino";
 import type { UpdateProjectDto } from "./dto/update-project.dto.js";
-import {
-  InvitationStatus,
-  ProjectInvitation,
-} from "../invitations/schemas/project-invitation.schema.js";
 
 @Injectable()
 export class ProjectsService {
@@ -40,7 +41,7 @@ export class ProjectsService {
     private readonly memberModel: Model<ProjectMemberDocument>,
 
     @InjectModel(ProjectInvitation.name)
-    private readonly inviteModel: Model<ProjectInvitation>,
+    private readonly inviteModel: Model<ProjectInvitationDocument>,
 
     @InjectConnection() private readonly connection: Connection,
 
@@ -522,7 +523,15 @@ export class ProjectsService {
       .lean()
       .exec();
 
-    // Kafka Event Emission (Project Viewed)
+    // 5. Calculate the specific role string for the frontend
+    let computedRole: string | null = null;
+    if (memberRecord) {
+      computedRole = memberRecord.role;
+    } else if (pendingInvite) {
+      computedRole = `PENDING_${pendingInvite.type}`;
+    }
+
+    // 6. Kafka Event Emission (Project Viewed)
     const projectViewedEvent: BaseEvent<any> = {
       eventId: uuidv7(),
       eventType: "collaboration.project.viewed",
@@ -536,6 +545,7 @@ export class ProjectsService {
         visibility: project.visibility,
         isMember: !!memberRecord,
         memberRole: memberRecord ? memberRecord.role : null,
+        computedRole,
       },
     };
     publishEvent("collaboration.events", projectViewedEvent).catch((err) =>
@@ -545,7 +555,7 @@ export class ProjectsService {
       ),
     );
 
-    // 4. Sanitize and Shape the Output
+    // 7. Sanitize and Shape the Output
     return {
       id: project._id,
       title: project.title,
@@ -560,12 +570,8 @@ export class ProjectsService {
       // ✨ Frontend Context: Crucial for UI rendering!
       // If myRole is null, the frontend knows to show a "Join Project" button.
       // If myRole is 'OWNER', the frontend knows to show the "Settings" and "Delete" buttons.
-      // If
-      myRole: () => {
-        if (memberRecord) return memberRecord.role;
-        if (pendingInvite) return `PENDING_${pendingInvite.type}`;
-        return null;
-      },
+      // If myRole is 'PENDING_...', it knows to show a "Request Pending" state.
+      myRole: computedRole,
     };
   }
 }

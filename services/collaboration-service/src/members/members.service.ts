@@ -6,7 +6,8 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
-import { Model, Connection, Types } from "mongoose";
+import { Types } from "mongoose";
+import type { Connection, Model } from "mongoose";
 import {
   ProjectMember,
   MemberRole,
