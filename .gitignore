@@ -3,3 +3,5 @@
 
 # Node modules
 node_modules/
+
+docker-compose.yml
