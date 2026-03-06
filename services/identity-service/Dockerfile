@@ -12,7 +12,12 @@ WORKDIR /app
 # Copy the shared event-bus FIRST so npm can find it
 COPY shared ./shared
 
-# Move down into the microservice directory
+# Build the shared library first (this will create the dist directory with the compiled code)
+WORKDIR /app/shared/event-bus
+RUN npm install
+RUN npm run build
+
+# Move back into the microservice directory
 WORKDIR /app/services/identity-service
 
 # Copy package.json and package-lock.json to the working directory
@@ -23,6 +28,10 @@ RUN npm install
 
 # Copy the rest of the application code to the working directory
 COPY services/identity-service ./
+
+# Set environment variables to skip validation and provide dummy values for build phase
+ENV ENVIRONMENT="build"
+ENV DATABASE_URL="where-is-my-database"
 
 # Generate the Prisma Client tailored for Linux BEFORE building NestJS
 RUN npx prisma generate

@@ -1,6 +1,7 @@
 import { Controller, Post, Body } from "@nestjs/common";
 import { AuthService } from "./auth.service.js";
 import { GoogleLoginDto } from "./dto/google-login.dto.js";
+import { context } from "@opentelemetry/api";
 
 @Controller("auth")
 export class AuthController {

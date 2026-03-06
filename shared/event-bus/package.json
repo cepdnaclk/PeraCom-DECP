@@ -21,6 +21,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
     "kafkajs": "^2.2.4",
     "node": "^25.6.1"
   },

@@ -2,6 +2,11 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 function getValidatedEnv() {
+  if (process.env.ENVIRONMENT === "build") {
+    console.log("Skipping environment validation for build phase...");
+    return {} as any;
+  }
+
   // 1. Define strictly what is required to boot the app
   const requiredVars = [
     "DATABASE_URL",
@@ -13,10 +18,12 @@ function getValidatedEnv() {
     "REDIS_HOST",
     "REDIS_PORT",
     "TTL_SECONDS",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
   ] as const;
   const missing = requiredVars.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
+    console.log("Current OS Env Keys:", Object.keys(process.env));
     throw new Error(
       `Missing required environment variables: ${missing.join(", ")}`,
     );
@@ -35,6 +42,8 @@ function getValidatedEnv() {
     REDIS_HOST: process.env.REDIS_HOST as string,
     REDIS_PORT: parseInt(process.env.REDIS_PORT as string, 10),
     TTL_SECONDS: parseInt(process.env.TTL_SECONDS as string, 10),
+    OTEL_EXPORTER_OTLP_ENDPOINT: process.env
+      .OTEL_EXPORTER_OTLP_ENDPOINT as string,
   };
 }
 

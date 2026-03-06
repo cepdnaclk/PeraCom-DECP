@@ -52,7 +52,7 @@ services:
 
   mongo:
     image: mongo:8.2.3
-    container_name: dhcp-mongo
+    container_name: decp-mongo
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
@@ -83,10 +83,19 @@ services:
   # =========================
   # KAFKA
   # =========================
+  init-kafka:
+    image: busybox
+    container_name: decp-kafka-init
+    user: root
+    volumes:
+      - kafka_data:/kafka/data
+    command: ["sh", "-c", "chown -R 1000:1000 /kafka/data"]
+
   kafka:
     image: apache/kafka:4.2.0
     container_name: decp-kafka
     environment:
+      - KAFKA_LOG_DIRS=/kafka/data
       - KAFKA_NODE_ID=1
       - KAFKA_PROCESS_ROLES=broker,controller
       - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
@@ -100,7 +109,7 @@ services:
       - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS= 0
       - KAFKA_NUM_PARTITIONS= 3
     volumes:
-      - kafka_data:/tmp/kafka-logs
+      - kafka_data:/kafka/data
     networks:
       - decp-network
     ports:
@@ -144,13 +153,19 @@ services:
       - kong_data:/var/lib/postgresql
     networks:
       - decp-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong -d kong"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   kong-migrations:
     image: kong:3.9.1
     container_name: decp-kong-db-migrations
     command: kong migrations bootstrap
     depends_on:
-      - kong-database
+      kong-database:
+        condition: service_healthy
     environment:
       KONG_DATABASE: postgres
       KONG_PG_HOST: kong-database
@@ -169,11 +184,15 @@ services:
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
     ports:
       - "8000:8000"
       - "8001:8001"
     depends_on:
-      - kong-migrations
+      kong-migrations:
+        condition: service_completed_successfully
+      kong-database:
+        condition: service_healthy
     networks:
       - decp-network
 
@@ -219,6 +238,7 @@ services:
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
     ports:
       - "9200:9200"
     volumes:
@@ -231,6 +251,8 @@ services:
     container_name: decp-kibana
     depends_on:
       - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     ports:
       - "5601:5601"
     networks:
@@ -240,25 +262,28 @@ services:
   # MICROSERVICES
   # =========================
   identity-service:
+    container_name: decp-identity-service
     build:
       context: .
       dockerfile: ./services/identity-service/Dockerfile
     env_file:
-      - ./services/identity-service/.env
+      - ./services/identity-service/.env.prod
     depends_on:
       - postgres
       - kafka
+      - redis
     networks:
       - decp-network
     expose:
-      - "3000"
+      - "4000"
 
   engagement-service:
+    container_name: decp-engagement-service
     build:
       context: .
       dockerfile: ./services/engagement-service/Dockerfile
     env_file:
-      - ./services/engagement-service/.env
+      - ./services/engagement-service/.env.prod
     depends_on:
       - mongo
       - kafka
@@ -266,89 +291,97 @@ services:
     networks:
       - decp-network
     expose:
-      - "3001"
-
-  message-service:
-    build:
-      context: .
-      dockerfile: ./services/message-service/Dockerfile
-    env_file:
-      - ./services/message-service/.env
-    depends_on:
-      - mongo
-      - kafka
-      - redis
-    networks:
-      - decp-network
-    expose:
-      - "3002"
-
-  notification-service:
-    build:
-      context: .
-      dockerfile: ./services/notification-service/Dockerfile
-    env_file:
-      - ./services/notification-service/.env
-    depends_on:
-      - kafka
-      - mongo
-    networks:
-      - decp-network
-    expose:
-      - "3003"
+      - "4001"
 
   career-service:
+    container_name: decp-career-service
     build:
       context: .
       dockerfile: ./services/career-service/Dockerfile
     env_file:
-      - ./services/career-service/.env
+      - ./services/career-service/.env.prod
     depends_on:
-      - postgres
+      - mongo
+      - minio
       - kafka
     networks:
       - decp-network
     expose:
-      - "3004"
+      - "4002"
 
   event-service:
+    container_name: decp-event-service
     build:
       context: .
       dockerfile: ./services/event-service/Dockerfile
     env_file:
-      - ./services/event-service/.env
+      - ./services/event-service/.env.prod
     depends_on:
-      - postgres
+      - mongo
+      - minio
       - kafka
     networks:
       - decp-network
     expose:
-      - "3005"
+      - "4003"
 
   collaboration-service:
+    container_name: decp-collab-service
     build:
       context: .
       dockerfile: ./services/collaboration-service/Dockerfile
     env_file:
-      - ./services/collaboration-service/.env
+      - ./services/collaboration-service/.env.prod
     depends_on:
+      - kafka
+      - mongo
+      - minio
+    networks:
+      - decp-network
+    expose:
+      - "4004"
+
+  message-service:
+    container_name: decp-message-service
+    build:
+      context: .
+      dockerfile: ./services/message-service/Dockerfile
+    env_file:
+      - ./services/message-service/.env.prod
+    depends_on:
+      - mongo
       - kafka
       - redis
     networks:
       - decp-network
     expose:
-      - "3006"
+      - "4005"
 
-  analytics-service:
-    build:
-      context: .
-      dockerfile: ./services/analytics-service/Dockerfile
-    env_file:
-      - ./services/analytics-service/.env
-    depends_on:
-      - kafka
-      - postgres
-    networks:
-      - decp-network
-    expose:
-      - "3007"
+  # notification-service:
+  #   container_name: decp-notification-service
+  #   build:
+  #     context: .
+  #     dockerfile: ./services/notification-service/Dockerfile
+  #   env_file:
+  #     - ./services/notification-service/.env.prod
+  #   depends_on:
+  #     - kafka
+  #   networks:
+  #     - decp-network
+  #   expose:
+  #     - "4006"
+
+  # analytics-service:
+  #   container_name: decp-analytics-service
+  #   build:
+  #     context: .
+  #     dockerfile: ./services/analytics-service/Dockerfile
+  #   env_file:
+  #     - ./services/analytics-service/.env.prod
+  #   depends_on:
+  #     - kafka
+  #     - postgres
+  #   networks:
+  #     - decp-network
+  #   expose:
+  #     - "4007"
