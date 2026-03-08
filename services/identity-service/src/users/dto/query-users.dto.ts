@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { IsOptional, IsString, IsEnum, IsNumber } from "class-validator";
-import { UserRole } from "../schemas/user.schema.js";
+import { SortOptions, SortOrder, UserRole } from "../schemas/user.schema.js";
 
 export class QueryUsersDto {
   @IsOptional()
@@ -20,4 +20,12 @@ export class QueryUsersDto {
   @IsOptional()
   @IsEnum(UserRole)
   role?: UserRole;
+
+  @IsOptional()
+  @IsEnum(SortOptions)
+  sortBy?: SortOptions;
+
+  @IsOptional()
+  @IsEnum(SortOrder)
+  sortOrder?: SortOrder;
 }

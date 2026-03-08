@@ -15,6 +15,12 @@ import type {
   UpdateUserAdminDto,
 } from "./dto/update-admin.dto.js";
 import type { QueryUsersDto } from "./dto/query-users.dto.js";
+import {
+  EmailPattern,
+  SortOptions,
+  SortOrder,
+  UserRole,
+} from "./schemas/user.schema.js";
 
 @Injectable()
 export class UsersService {
@@ -120,7 +126,46 @@ export class UsersService {
       email: s.email.trim().toLowerCase(),
     }));
 
-    const emails = normalizedStudents.map((s) => s.email);
+    const healthyUsers = normalizedStudents.filter((u, idx) => {
+      // Validate First Name and Last Name
+      if (
+        !u.first_name ||
+        !u.last_name ||
+        u.first_name.trim().length === 0 ||
+        u.last_name.trim().length === 0
+      ) {
+        errors.push({
+          row: idx + 1,
+          message: `First name and last name are required.`,
+        });
+
+        return false;
+      }
+
+      // Validate email format
+      if (!EmailPattern.test(u.email)) {
+        errors.push({
+          row: idx + 1,
+          message: `Invalid email format for ${u.email}`,
+        });
+
+        return false;
+      }
+
+      // Validate user roles
+      if (!Object.values(UserRole).includes(u.role)) {
+        errors.push({
+          row: idx + 1,
+          message: `Invalid role ${u.role} for email ${u.email}`,
+        });
+
+        return false;
+      }
+
+      return true;
+    });
+
+    const emails = healthyUsers.map((s) => s.email);
     console.log("Validating bulk students emails:", emails);
 
     // 2. Fetch existing users from the DB in ONE query
@@ -132,8 +177,8 @@ export class UsersService {
     const existingEmailSet = new Set(existingUsers.map((u) => u.email));
 
     // 3. Loop through and categorize
-    for (let i = 0; i < normalizedStudents.length; i++) {
-      const student = normalizedStudents[i] as CreateUserDto;
+    for (let i = 0; i < healthyUsers.length; i++) {
+      const student = healthyUsers[i] as CreateUserDto;
 
       // Error Type A: Already exists in the Database
       if (existingEmailSet.has(student.email)) {
@@ -511,6 +556,8 @@ export class UsersService {
   ) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;
+    const sortBy = query.sortBy || SortOptions.NAME;
+    const sortOrder = query.sortOrder || SortOrder.DESC;
 
     const skip = (page - 1) * limit;
 
@@ -537,7 +584,7 @@ export class UsersService {
         where,
         skip,
         take: limit,
-        orderBy: { created_at: "desc" },
+        orderBy: { [sortBy]: sortOrder },
 
         // ⚡ LIGHTWEIGHT SELECT
         select: {
