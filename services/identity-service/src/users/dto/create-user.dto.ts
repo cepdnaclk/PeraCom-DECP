@@ -1,10 +1,17 @@
-import { IsEmail, IsNotEmpty, IsString, Matches } from "class-validator";
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsString,
+  Matches,
+} from "class-validator";
+import { UserRole } from "./update-admin.dto.js";
 
 export class CreateUserDto {
   @IsEmail()
   @IsNotEmpty()
   // This automatically enforces your university domain rule!
-  @Matches(/^[^\s@]+@eng\.pdn\.ac\.lk$/, {
+  @Matches(/^[^\s@]+@([^\s@]+\.)?pdn\.ac\.lk$/, {
     message: "Use the university email address",
   })
   email!: string;
@@ -17,7 +24,7 @@ export class CreateUserDto {
   @IsNotEmpty()
   last_name!: string;
 
-  @IsString()
   @IsNotEmpty()
-  role!: "STUDENT" | "ALUMNI" | "ADMIN";
+  @IsEnum(UserRole)
+  role!: UserRole;
 }

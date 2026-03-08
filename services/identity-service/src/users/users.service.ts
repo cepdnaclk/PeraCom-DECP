@@ -54,7 +54,6 @@ export class UsersService {
         select: {
           id: true,
           email: true,
-          reg_number: true,
           first_name: true,
           last_name: true,
           role: true,
@@ -77,7 +76,6 @@ export class UsersService {
         select: {
           id: true,
           email: true,
-          reg_number: true,
           first_name: true,
           last_name: true,
           role: true,
@@ -105,7 +103,7 @@ export class UsersService {
 
     await publishEvent("identity.events", userCreatedEvent);
 
-    return { status: "user_created", user: newUser };
+    return { status: "user_created" };
   }
 
   // ==========================================

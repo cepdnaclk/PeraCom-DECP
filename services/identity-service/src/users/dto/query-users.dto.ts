@@ -1,11 +1,6 @@
 import { Type } from "class-transformer";
 import { IsOptional, IsString, IsEnum, IsNumber } from "class-validator";
-
-export enum UserRole {
-  ADMIN = "ADMIN",
-  STUDENT = "STUDENT",
-  ALUMNI = "ALUMNI",
-}
+import { UserRole } from "./update-admin.dto.js";
 
 export class QueryUsersDto {
   @IsOptional()
