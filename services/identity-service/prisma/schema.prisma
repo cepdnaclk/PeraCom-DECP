@@ -12,8 +12,8 @@ datasource db {
 
 enum UserRole {
   ADMIN
-  STUDENT
   ALUMNI
+  STUDENT
 }
 
 enum SocialPlatform {
@@ -78,7 +78,7 @@ model SocialLink {
   id       String         @id @db.Uuid
   user_id  String         @db.Uuid
   platform SocialPlatform
-  url      String         @db.Text @unique
+  url      String         @unique @db.Text
 
   created_at DateTime @default(now()) @db.Timestamptz()
 

@@ -279,7 +279,7 @@ export class UsersService {
     }
 
     // 2. Check if user exists and is active
-    const updatedUser = await this.prisma.user.update({
+    const reactivatedUser = await this.prisma.user.update({
       where: { id: userId, is_active: false },
       data: { is_active: true },
       select: {
@@ -292,10 +292,13 @@ export class UsersService {
       },
     });
 
-    console.log(`Attempted to reactivate user ${userId}. Result:`, updatedUser);
+    console.log(
+      `Attempted to reactivate user ${userId}. Result:`,
+      reactivatedUser,
+    );
 
     // 3. If user doesn't exist, throw an error
-    if (!updatedUser) {
+    if (!reactivatedUser) {
       throw new NotFoundException("User already be active or do not exist.");
     }
 
@@ -309,19 +312,16 @@ export class UsersService {
       correlationId: correlationId,
       actorId: adminId,
       data: {
-        user_id: updatedUser.id,
-        email: updatedUser.email,
-        first_name: updatedUser.first_name,
-        last_name: updatedUser.last_name,
+        user_id: reactivatedUser.id,
+        email: reactivatedUser.email,
+        first_name: reactivatedUser.first_name,
+        last_name: reactivatedUser.last_name,
       },
     };
     await publishEvent("identity.events", userActivatedEvent);
 
     // 5. Return the result
-    return {
-      message: "User reactivated successfully",
-      user: updatedUser.id,
-    };
+    return { message: "User reactivated successfully" };
   }
 
   // ==========================================
@@ -550,6 +550,10 @@ export class UsersService {
   ) {
     // 1. Extract batch and role from payload
     const { batch, role } = payload;
+
+    console.log(
+      `Admin ${adminId} is updating roles for batch ${batch} to ${role}`,
+    );
 
     // 2. Update active users that belong to the provided batch prefix (e.g. E20 -> E20XXX).
     const result = await this.prisma.user.updateMany({

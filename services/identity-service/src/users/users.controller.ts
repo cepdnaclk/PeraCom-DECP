@@ -122,7 +122,11 @@ export class UsersController {
     @Param("id") userId: string,
     @CorrelationId() correlationId: string,
   ) {
-    return this.usersService.reactivateSingleUser(adminId, correlationId, userId);
+    return this.usersService.reactivateSingleUser(
+      adminId,
+      correlationId,
+      userId,
+    );
   }
 
   // PATCH /users
