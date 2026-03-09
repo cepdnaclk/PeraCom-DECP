@@ -6,8 +6,6 @@ import {
 import { createConsumer, startConsuming } from "@decp/event-bus";
 import type { BaseEvent, Consumer } from "@decp/event-bus";
 import { InjectPinoLogger, PinoLogger } from "nestjs-pino";
-
-// We will build this service next, it holds the actual business logic
 import { NotificationProcessorService } from "../processor/notification-processor.service.js";
 import { env } from "../config/validateEnv.config.js";
 
@@ -27,22 +25,17 @@ export class NotificationConsumerService
   // START CONSUMING ON BOOT
   // ========================================================================
   async onModuleInit() {
-    this.logger.info("Initializing Kafka Consumer for Notifications...");
+    this.logger.info("🚦Initializing Kafka Consumer for Notifications... 🚦");
 
     try {
       // 1. Connect and Subscribe
       // We listen to all major domain topics.
       this.consumer = await createConsumer(
         [env.KAFKA_BROKER],
-        "notification-service-group", // Unique group ID for this microservice
-        [
-          "collaboration.events",
-          "engagement.events",
-          "career.events",
-          "identity.events",
-        ],
+        env.KAFKA_GROUP_ID, // Unique group ID for this microservice
+        [env.KAFKA_TOPICS],
         false, // Do NOT read from the beginning
-        "notification-consumer-client",
+        env.KAFKA_CLIENT_ID, // Client ID for better observability in Kafka
       );
 
       // 2. Start the Infinite Listening Loop

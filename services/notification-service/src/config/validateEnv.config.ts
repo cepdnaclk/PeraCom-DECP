@@ -18,6 +18,8 @@ function getValidatedEnv() {
   const requiredVars = [
     "JWT_SECRET",
     "KAFKA_BROKER",
+    "KAFKA_GROUP_ID",
+    "KAFKA_CLIENT_ID",
     "KAFKA_TOPICS",
     "OTEL_EXPORTER_OTLP_ENDPOINT",
     "MONGO_URI",
@@ -51,7 +53,9 @@ function getValidatedEnv() {
     // This stops TypeScript from complaining about `string | undefined`.
     NODE_PORT: parseInt(process.env.NODE_PORT as string, 10),
     KAFKA_BROKER: process.env.KAFKA_BROKER as string,
-    KAFKA_TOPICS: process.env.KAFKA_TOPICS?.split(",").map((s) => s.trim()),
+    KAFKA_GROUP_ID: process.env.KAFKA_GROUP_ID as string,
+    KAFKA_CLIENT_ID: process.env.KAFKA_CLIENT_ID as string,
+    KAFKA_TOPICS: process.env.KAFKA_TOPICS as string,
     JWT_SECRET: process.env.JWT_SECRET as string,
     OTEL_EXPORTER_OTLP_ENDPOINT: process.env
       .OTEL_EXPORTER_OTLP_ENDPOINT as string,
