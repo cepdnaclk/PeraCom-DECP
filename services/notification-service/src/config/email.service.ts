@@ -31,7 +31,7 @@ export class EmailService implements OnModuleInit {
       // Verify the connection configuration on boot
       await this.transporter.verify();
       this.logger.info(
-        "📧 Email Service connected to SMTP provider successfully.",
+        "... Email Service connected to SMTP provider successfully ...",
       );
     } catch (error) {
       this.logger.error(

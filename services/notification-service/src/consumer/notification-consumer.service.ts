@@ -25,7 +25,7 @@ export class NotificationConsumerService
   // START CONSUMING ON BOOT
   // ========================================================================
   async onModuleInit() {
-    this.logger.info("🚦Initializing Kafka Consumer for Notifications... 🚦");
+    this.logger.info("... Initializing Kafka Consumer for Notifications ...");
 
     try {
       // 1. Connect and Subscribe
@@ -40,6 +40,7 @@ export class NotificationConsumerService
 
       // 2. Start the Infinite Listening Loop
       await startConsuming(this.consumer, async (topic, event) => {
+        console.log("Received event:", event);
         await this.routeEvent(topic, event);
       });
     } catch (error) {
@@ -60,6 +61,18 @@ export class NotificationConsumerService
     try {
       // We route the event to the correct business logic handler based on its type.
       switch (event.eventType) {
+        // --- IDENTITY EVENTS ---
+        case "identity.user_list.retrieved": {
+          this.logger.debug(
+            `Received event [${event.eventType}] from topic [${topic}] with data: ${JSON.stringify(event.data)}`,
+          );
+          this.logger.info(
+            `Admin user ${event.actorId} retrieved the ${event.data.count} user list.`,
+          );
+          // await this.processorService.handleUserListRetrieved(event.data);
+          break;
+        }
+
         // --- COLLABORATION EVENTS ---
         case "collaboration.join_request.created":
           await this.processorService.handleJoinRequest(event.data);
