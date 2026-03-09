@@ -7,6 +7,7 @@ import {
   Param,
   Get,
   Query,
+  Delete,
 } from "@nestjs/common";
 import { UsersService } from "./users.service.js";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard.js";
@@ -14,15 +15,12 @@ import { RolesGuard } from "../auth/guards/roles.guard.js";
 import { Roles } from "../auth/decorators/roles.decorator.js";
 import { CorrelationId } from "../auth/decorators/correlation-id.decorator.js";
 import { ActorId } from "../auth/decorators/actor.decorator.js";
-import type { CreateUserDto } from "./dto/create-user.dto.js";
-import type { CreateBulkDto } from "./dto/create-bulk.dto.js";
-import type { BulkSuspendDto } from "./dto/suspend-bulk.dto.js";
-import type { UpdateProfileDto } from "./dto/update-profile.dto.js";
-import type {
-  UpdateRolesDto,
-  UpdateUserAdminDto,
-} from "./dto/update-admin.dto.js";
-import type { QueryUsersDto } from "./dto/query-users.dto.js";
+import { CreateUserDto } from "./dto/create-user.dto.js";
+import { CreateBulkDto } from "./dto/create-bulk.dto.js";
+import { BulkSuspendDto } from "./dto/suspend-bulk.dto.js";
+import { UpdateProfileDto } from "./dto/update-profile.dto.js";
+import { UpdateRolesDto, UpdateUserAdminDto } from "./dto/update-admin.dto.js";
+import { QueryUsersDto } from "./dto/query-users.dto.js";
 
 @Controller("users")
 export class UsersController {
@@ -64,26 +62,26 @@ export class UsersController {
     return this.usersService.createSingleUser(dto, correlationId, adminId);
   }
 
-  // PATCH /users/bulk/suspend
+  // DELETE /users/bulk
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
-  @Patch("bulk/suspend")
+  @Delete("bulk")
   suspendBulk(
-    @Body() dto: BulkSuspendDto,
     @CorrelationId() correlationId: string,
     @ActorId() adminId: string,
+    @Body() payload: BulkSuspendDto,
   ) {
     return this.usersService.suspendBulkUsers(
-      dto.userIds,
       correlationId,
       adminId,
+      payload.batch,
     );
   }
 
-  // PATCH /users/:id/suspend
+  // DELETE /users/:id
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
-  @Patch(":id/suspend")
+  @Delete(":id")
   suspendUser(
     @Param("id") userId: string,
     @CorrelationId() correlationId: string,
@@ -119,16 +117,30 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("ADMIN")
   @Patch(":id")
+  reactivateUser(
+    @ActorId() adminId: string,
+    @Param("id") userId: string,
+    @CorrelationId() correlationId: string,
+  ) {
+    return this.usersService.reactivateSingleUser(
+      adminId,
+      correlationId,
+      userId,
+    );
+  }
+
+  // PATCH /users
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("ADMIN")
+  @Patch()
   updateUserByAdmin(
     @ActorId() adminId: string,
     @CorrelationId() correlationId: string,
-    @Param("id") userId: string,
     @Body() userData: UpdateUserAdminDto,
   ) {
     return this.usersService.updateUserByAdmin(
       adminId,
       correlationId,
-      userId,
       userData,
     );
   }
