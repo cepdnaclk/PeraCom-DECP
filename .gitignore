@@ -1,5 +1,8 @@
 # Environment variables
-.env
+.env.*
 
 # Node modules
 node_modules/
+
+dist/
+services/notification-service_old/dist/notification/dto/read-all.dto.d.ts.map

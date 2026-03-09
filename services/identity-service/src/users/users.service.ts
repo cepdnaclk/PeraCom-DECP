@@ -15,6 +15,12 @@ import type {
   UpdateUserAdminDto,
 } from "./dto/update-admin.dto.js";
 import type { QueryUsersDto } from "./dto/query-users.dto.js";
+import {
+  EmailPattern,
+  SortOptions,
+  SortOrder,
+  UserRole,
+} from "./schemas/user.schema.js";
 
 @Injectable()
 export class UsersService {
@@ -33,57 +39,43 @@ export class UsersService {
       where: { email: data.email.trim().toLowerCase() },
     });
 
-    let newUser;
+    const selectFields = {
+      id: true,
+      first_name: true,
+      last_name: true,
+      email: true,
+      role: true,
+      reg_number: true,
+      profile_pic: true,
+      is_active: true,
+    };
+
+    // 2. If email exists, throw an error
     if (existing) {
-      // 2. If email exists, throw an error
       if (existing.is_active) {
         console.log("Active user with email already exists:", data.email);
         throw new ConflictException("Email already exists");
+      } else {
+        console.log("Suspended user with email already exists:", data.email);
+        throw new ConflictException(
+          "Email already exists, but the account is suspended.",
+        );
       }
-
-      // 3. If the existing user is not active, we can choose to reactivate and update their info instead of creating a new record
-      console.log("Deactivated user. Reactive account: ", data.email);
-      newUser = await this.prisma.user.update({
-        where: { id: existing.id },
-        data: {
-          is_active: true,
-          first_name: data.first_name.trim(),
-          last_name: data.last_name.trim(),
-          role: data.role || "STUDENT",
-        },
-        select: {
-          id: true,
-          email: true,
-          reg_number: true,
-          first_name: true,
-          last_name: true,
-          role: true,
-        },
-      });
     }
 
-    // 4. No user found with the email, proceed to create a new one
-    else {
-      console.log("No existing users. Safe to proceed: ", data.email);
-      newUser = await this.prisma.user.create({
-        data: {
-          id: uuidv7(),
-          email: data.email.trim().toLowerCase(),
-          first_name: data.first_name.trim(),
-          last_name: data.last_name.trim(),
-          reg_number: data.email.split("@")[0] || "",
-          role: data.role || "STUDENT",
-        },
-        select: {
-          id: true,
-          email: true,
-          reg_number: true,
-          first_name: true,
-          last_name: true,
-          role: true,
-        },
-      });
-    }
+    // 3. No user found with the email, proceed to create a new one
+    console.log("No existing users. Safe to proceed: ", data.email);
+    const newUser = await this.prisma.user.create({
+      data: {
+        id: uuidv7(),
+        email: data.email.trim().toLowerCase(),
+        first_name: data.first_name.trim(),
+        last_name: data.last_name.trim(),
+        reg_number: data.email.split("@")[0] || "",
+        role: data.role || "STUDENT",
+      },
+      select: selectFields,
+    });
 
     // 6. Broadcast the event so other services can prepare
     const userCreatedEvent: BaseEvent<any> = {
@@ -105,7 +97,7 @@ export class UsersService {
 
     await publishEvent("identity.events", userCreatedEvent);
 
-    return { status: "user_created", user: newUser };
+    return { status: "user_created" };
   }
 
   // ==========================================
@@ -123,7 +115,46 @@ export class UsersService {
       email: s.email.trim().toLowerCase(),
     }));
 
-    const emails = normalizedStudents.map((s) => s.email);
+    const healthyUsers = normalizedStudents.filter((u, idx) => {
+      // Validate First Name and Last Name
+      if (
+        !u.first_name ||
+        !u.last_name ||
+        u.first_name.trim().length === 0 ||
+        u.last_name.trim().length === 0
+      ) {
+        errors.push({
+          row: idx + 1,
+          message: `First name and last name are required.`,
+        });
+
+        return false;
+      }
+
+      // Validate email format
+      if (!EmailPattern.test(u.email)) {
+        errors.push({
+          row: idx + 1,
+          message: `Invalid email format for ${u.email}`,
+        });
+
+        return false;
+      }
+
+      // Validate user roles
+      if (!Object.values(UserRole).includes(u.role)) {
+        errors.push({
+          row: idx + 1,
+          message: `Invalid role ${u.role} for email ${u.email}`,
+        });
+
+        return false;
+      }
+
+      return true;
+    });
+
+    const emails = healthyUsers.map((s) => s.email);
     console.log("Validating bulk students emails:", emails);
 
     // 2. Fetch existing users from the DB in ONE query
@@ -135,8 +166,8 @@ export class UsersService {
     const existingEmailSet = new Set(existingUsers.map((u) => u.email));
 
     // 3. Loop through and categorize
-    for (let i = 0; i < normalizedStudents.length; i++) {
-      const student = normalizedStudents[i] as CreateUserDto;
+    for (let i = 0; i < healthyUsers.length; i++) {
+      const student = healthyUsers[i] as CreateUserDto;
 
       // Error Type A: Already exists in the Database
       if (existingEmailSet.has(student.email)) {
@@ -233,6 +264,67 @@ export class UsersService {
   }
 
   // ==========================================
+  // SINGLE REACTIVATE LOGIC
+  // ==========================================
+  async reactivateSingleUser(
+    adminId: string,
+    correlationId: string,
+    userId: string,
+  ) {
+    // 1. Prevent admin from suspending themselves
+    if (userId === adminId) {
+      throw new BadRequestException(
+        "Suspended user cannot reactivae themselves",
+      );
+    }
+
+    // 2. Check if user exists and is active
+    const reactivatedUser = await this.prisma.user.update({
+      where: { id: userId, is_active: false },
+      data: { is_active: true },
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true,
+        role: true,
+        is_active: true,
+      },
+    });
+
+    console.log(
+      `Attempted to reactivate user ${userId}. Result:`,
+      reactivatedUser,
+    );
+
+    // 3. If user doesn't exist, throw an error
+    if (!reactivatedUser) {
+      throw new NotFoundException("User already be active or do not exist.");
+    }
+
+    // 4. Broadcast the event so other services can react accordingly
+    const userActivatedEvent: BaseEvent<any> = {
+      eventId: uuidv7(),
+      eventType: "identity.user.reactivate",
+      eventVersion: "1.0",
+      timestamp: new Date().toISOString(),
+      producer: "identity-service",
+      correlationId: correlationId,
+      actorId: adminId,
+      data: {
+        user_id: reactivatedUser.id,
+        email: reactivatedUser.email,
+        first_name: reactivatedUser.first_name,
+        last_name: reactivatedUser.last_name,
+      },
+    };
+    await publishEvent("identity.events", userActivatedEvent);
+
+    // 5. Return the result
+    return { message: "User reactivated successfully" };
+  }
+
+  // ==========================================
   // SINGLE SUSPEND LOGIC
   // ==========================================
   async suspendSingleUser(
@@ -284,33 +376,28 @@ export class UsersService {
     await publishEvent("identity.events", userSuspendedEvent);
 
     // 5. Return the result
-    return {
-      message: "User suspended successfully",
-      userId: updatedUser.id,
-    };
+    return { message: "User suspended successfully" };
   }
 
   // ==========================================
   // BULK SUSPEND LOGIC
   // ==========================================
   async suspendBulkUsers(
-    userIds: string[],
     correlationId: string,
     adminId: string,
+    batch: string,
   ) {
-    // 1. Prevent admin from suspending themselves
-    if (userIds.includes(adminId)) {
-      throw new BadRequestException("Admin cannot suspend themselves");
-    }
-
-    // 2. Suspend users in the database (only those that are currently active)
+    // 1. Suspend users in the database (only those that are currently active)
     const result = await this.prisma.user.updateMany({
-      where: { id: { in: userIds }, is_active: true },
+      where: {
+        reg_number: { startsWith: batch.toLowerCase() },
+        is_active: true,
+      },
       data: { is_active: false },
     });
 
     console.log(
-      `Attempted to suspend ${userIds.length} users. Actually suspended: ${result}`,
+      `Attempted to suspend ${batch} batch. Actually suspended: ${result.count}`,
     );
 
     // 3. If no users were suspended, it could be because they were already suspended or didn't exist
@@ -330,6 +417,7 @@ export class UsersService {
       correlationId: correlationId,
       actorId: adminId,
       data: {
+        batch,
         count: result.count,
         users: result,
       },
@@ -395,9 +483,10 @@ export class UsersService {
   async updateUserByAdmin(
     adminId: string,
     correlationId: string,
-    userId: string,
-    userData: UpdateUserAdminDto,
+    dto: UpdateUserAdminDto,
   ) {
+    const { userId, ...userData } = dto;
+
     // 1. Admin cannot update their own profile through this endpoint
     if (adminId === userId) {
       throw new ForbiddenException(
@@ -411,11 +500,13 @@ export class UsersService {
       data: userData,
       select: {
         id: true,
-        email: true,
-        reg_number: true,
         first_name: true,
         last_name: true,
+        email: true,
         role: true,
+        reg_number: true,
+        profile_pic: true,
+        is_active: true,
       },
     });
 
@@ -436,34 +527,45 @@ export class UsersService {
         first_name: updatedUser.first_name,
         last_name: updatedUser.last_name,
         email: updatedUser.email,
+        role: updatedUser.role,
       },
     };
     await publishEvent("identity.events", userUpdatedEvent);
+
+    console.log(
+      `Admin ${adminId} updated user ${userId}. Updated data:`,
+      updatedUser,
+    );
 
     return { message: "User updated successfully", user: updatedUser };
   }
 
   // ======================================
-  // ROLE CHANGE (SINGLE + BULK)
+  // ROLE CHANGE (BULK)
   // ======================================
   async updateUserRoles(
     adminId: string,
     correlationId: string,
     payload: UpdateRolesDto,
   ) {
-    // 1. Prevent self demotion
-    if (payload.userIds.includes(adminId)) {
-      throw new ForbiddenException("Admins cannot change their own role");
-    }
+    // 1. Extract batch and role from payload
+    const { batch, role } = payload;
 
-    // 2. Update users in the database (only those that are currently active)
+    console.log(
+      `Admin ${adminId} is updating roles for batch ${batch} to ${role}`,
+    );
+
+    // 2. Update active users that belong to the provided batch prefix (e.g. E20 -> E20XXX).
     const result = await this.prisma.user.updateMany({
-      where: { id: { in: payload.userIds }, is_active: true },
-      data: { role: payload.role },
+      where: {
+        reg_number: { startsWith: batch.toLowerCase() },
+        is_active: true,
+      },
+      data: { role: role },
     });
 
     console.log(
-      `Attempted to update ${payload.userIds.length} users. Actually updated: ${result.count}`,
+      `Attempted role update for batch ${batch}. Actually updated: ${result.count}`,
     );
 
     // 3. If no users were updated, it could be because they were already in the target role or didn't exist
@@ -483,6 +585,8 @@ export class UsersService {
       correlationId: correlationId,
       actorId: adminId,
       data: {
+        batch,
+        role,
         count: result.count,
         users: result,
       },
@@ -505,6 +609,8 @@ export class UsersService {
   ) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 20;
+    const sortBy = query.sortBy || SortOptions.NAME;
+    const sortOrder = query.sortOrder || SortOrder.DESC;
 
     const skip = (page - 1) * limit;
 
@@ -521,12 +627,9 @@ export class UsersService {
     }
 
     // 2. Role filter
-    if (query.role) {
-      where.role = query.role;
-    }
+    if (query.role) where.role = query.role;
 
-    // 3. Only active users
-    where.is_active = true;
+    console.log(`Admin ${adminId} is fetching users with query:`, query);
 
     // 4. Fetch users with pagination and total count in a single transaction
     const [users, total] = await this.prisma.$transaction([
@@ -534,7 +637,7 @@ export class UsersService {
         where,
         skip,
         take: limit,
-        orderBy: { created_at: "desc" },
+        orderBy: { [sortBy]: sortOrder },
 
         // ⚡ LIGHTWEIGHT SELECT
         select: {
@@ -544,6 +647,8 @@ export class UsersService {
           email: true,
           role: true,
           reg_number: true,
+          profile_pic: true,
+          is_active: true,
         },
       }),
 

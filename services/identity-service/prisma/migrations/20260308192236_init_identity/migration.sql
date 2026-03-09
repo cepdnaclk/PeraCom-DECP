@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'STUDENT', 'ALUMNI');
+CREATE TYPE "UserRole" AS ENUM ('ADMIN', 'ALUMNI', 'STUDENT');
 
 -- CreateEnum
 CREATE TYPE "SocialPlatform" AS ENUM ('LinkedIn', 'GitHub', 'Portfolio', 'Personal', 'Facebook', 'Twitter', 'ResearchGate', 'Other');

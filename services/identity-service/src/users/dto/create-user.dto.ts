@@ -1,10 +1,17 @@
-import { IsEmail, IsNotEmpty, IsString, Matches } from "class-validator";
+import {
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsString,
+  Matches,
+} from "class-validator";
+import { EmailPattern, UserRole } from "../schemas/user.schema.js";
 
 export class CreateUserDto {
   @IsEmail()
   @IsNotEmpty()
   // This automatically enforces your university domain rule!
-  @Matches(/^[^\s@]+@eng\.pdn\.ac\.lk$/, {
+  @Matches(EmailPattern, {
     message: "Use the university email address",
   })
   email!: string;
@@ -17,7 +24,7 @@ export class CreateUserDto {
   @IsNotEmpty()
   last_name!: string;
 
-  @IsString()
   @IsNotEmpty()
-  role!: "STUDENT" | "ALUMNI" | "ADMIN";
+  @IsEnum(UserRole)
+  role!: UserRole;
 }
