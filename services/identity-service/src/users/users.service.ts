@@ -743,7 +743,7 @@ export class UsersService {
   ) {
     // 1. Fetch the user's public profile (only if active)
     const user = await this.prisma.user.findUnique({
-      where: { id: userId, is_active: true },
+      where: { id: userId, is_active: true, role: { not: UserRole.ADMIN } },
       select: {
         id: true,
         first_name: true,

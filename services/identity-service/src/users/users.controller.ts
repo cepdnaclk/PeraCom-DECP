@@ -146,7 +146,8 @@ export class UsersController {
   }
 
   // GET /users/me
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("STUDENT", "ALUMNI")
   @Get("me")
   getMyProfile(
     @ActorId() userId: string,
