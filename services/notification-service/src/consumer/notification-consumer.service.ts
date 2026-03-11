@@ -104,6 +104,18 @@ export class NotificationConsumerService
           break;
         }
 
+        case "identity.batch_users.suspended": {
+          this.logger.info(
+            { count: event.data.count, batch: event.data.batch, actorId: event.actorId },
+            "Batch users suspended."
+          );
+          await this.processorService.handleBatchSuspension(
+            event.data.users,
+            event.actorId
+          );
+          break;
+        }
+
         default:
           // We safely ignore events we don't care about.
           this.logger.warn(`Unhandled event type: ${event.eventType}`);

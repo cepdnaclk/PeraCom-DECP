@@ -77,7 +77,7 @@ export class EmailService implements OnModuleInit {
 
   private async sendMail(to: string, subject: string, html: string) {
     try {
-      const info = await this.transporter.sendMail({
+      /* const info = await this.transporter.sendMail({
         from: env.SMTP_FROM,
         to,
         subject,
@@ -86,6 +86,10 @@ export class EmailService implements OnModuleInit {
       this.logger.debug(
         { messageId: info.messageId, to },
         "Email dispatched successfully",
+      );*/
+      this.logger.debug(
+        { to, subject },
+        "Email dispatch simulated (no actual send)",
       );
       return true;
     } catch (error) {

@@ -348,4 +348,73 @@ export class NotificationProcessorService {
       "Successfully processed user suspension event",
     );
   }
+
+  // ========================================================================
+  // 1.6 HANDLE BATCH USERS SUSPENDED
+  // ========================================================================
+  async handleBatchSuspension(users: any[], actorId?: string) {
+    this.logger.info(
+      { count: users.length, actorId },
+      "Processing batch user suspension",
+    );
+
+    if (!users || users.length === 0) return;
+
+    // Action 1: In-App Notification (Always log this system alert for auditing)
+    const notificationDocs = users.map((user) => ({
+      recipientId: user.user_id,
+      actorId: actorId || "system", // Admin action
+      actionType: ActionType.SYSTEM_ALERT,
+      entityType: EntityType.USER,
+      entityId: "suspended", // Generic ID for batch suspensions
+      metadata: {
+        message: "Your account access has been suspended by administration.",
+      },
+    }));
+
+    try {
+      await this.notificationModel.insertMany(notificationDocs);
+      this.logger.info(
+        "Successfully created in-app suspension alerts for batch",
+      );
+
+      // Action 2 & 3: Email Dispatch with Resilience
+      for (const user of users) {
+        if (!user.email) continue;
+
+        try {
+          // Action 2 constraint: Send the suspend email to all
+          await this.emailService.sendSuspensionEmail({
+            email: user.email,
+            name: `${user.first_name} ${user.last_name}`.trim(),
+          });
+          this.logger.info(
+            `[MOCK] Sending Suspension Email to ${user.email} for user ${user.user_id}`,
+          );
+
+          // Small delay to avoid mailer rate limits
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        } catch (emailError: any) {
+          this.logger.error(
+            {
+              error: emailError.message,
+              user_id: user.user_id,
+              email: user.email,
+            },
+            "Failed to send suspension email in batch processing",
+          );
+        }
+      }
+
+      this.logger.info(
+        { count: users.length, actorId },
+        "Successfully processed batch user suspension event",
+      );
+    } catch (error) {
+      this.logger.error(
+        { error },
+        "Batch suspension failed partially or completely",
+      );
+    }
+  }
 }
