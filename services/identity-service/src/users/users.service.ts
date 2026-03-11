@@ -387,7 +387,27 @@ export class UsersService {
     adminId: string,
     batch: string,
   ) {
-    // 1. Suspend users in the database (only those that are currently active)
+    // 1. First, find the users we are about to suspend so we have their details for the event
+    const usersToSuspend = await this.prisma.user.findMany({
+      where: {
+        reg_number: { startsWith: batch.toLowerCase() },
+        is_active: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true,
+      },
+    });
+
+    if (usersToSuspend.length === 0) {
+      throw new BadRequestException(
+        "No active users found for this batch prefix.",
+      );
+    }
+
+    // 2. Suspend users in the database (only those that are currently active)
     const result = await this.prisma.user.updateMany({
       where: {
         reg_number: { startsWith: batch.toLowerCase() },
@@ -419,7 +439,12 @@ export class UsersService {
       data: {
         batch,
         count: result.count,
-        users: result,
+        users: usersToSuspend.map((u) => ({
+          user_id: u.id,
+          email: u.email,
+          first_name: u.first_name,
+          last_name: u.last_name,
+        })),
       },
     };
     await publishEvent("identity.events", batchSuspendedEvent);
