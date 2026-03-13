@@ -835,13 +835,14 @@ export class UsersService {
   // GET USER SUMMARY (FOR OTHER SERVICES)
   // ==========================================
   async getUserSummary(users: string[]) {
+    console.log(`Fetching user summaries for user IDs: ${users.join(", ")}`);
+
     // 1. Fetch the user's summary info (only if active)
     const userSummaries = await this.prisma.user.findMany({
       where: { id: { in: users }, is_active: true },
       select: {
         id: true,
         first_name: true,
-        middle_name: true,
         last_name: true,
         profile_pic: true,
       },
