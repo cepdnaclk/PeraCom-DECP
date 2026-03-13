@@ -15,7 +15,7 @@ import {
 } from "@nestjs/common";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { PostsService } from "./posts.service.js";
-import { CreatePostDto, UpdatePostDto } from "./dto/post.dto.js";
+import { CreatePostDto, RepostDto, UpdatePostDto } from "./dto/post.dto.js";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard.js";
 import { RolesGuard } from "../auth/guards/roles.guard.js";
 import { Roles } from "../auth/decorators/roles.decorator.js";
@@ -62,15 +62,15 @@ export class PostsController {
     );
   }
 
-  // GET /posts/:id
+  // POST /posts/repost
   @UseGuards(JwtAuthGuard)
-  @Get(":id")
-  async getPost(
+  @Post("repost")
+  async repost(
     @ActorId() actorId: string,
     @CorrelationId() correlationId: string,
-    @Param("id") postId: string,
+    @Body() repostDto: RepostDto,
   ) {
-    return this.postsService.getPostById(actorId, correlationId, postId);
+    return this.postsService.repostPost(actorId, correlationId, repostDto);
   }
 
   // GET /posts?cursor=xxx&limit=10
