@@ -17,8 +17,13 @@ export class Post {
   @Prop({ required: true })
   authorId!: string;
 
-  @Prop({ required: true, maxlength: 2000 })
-  content!: string;
+  @Prop({
+    required: function (this: PostDocument) {
+      return !this.originalPostId;
+    },
+    maxlength: 2000,
+  })
+  content?: string;
 
   @Prop({ type: [String], default: [] })
   images!: string[];
