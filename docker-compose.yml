@@ -402,3 +402,21 @@ services:
       - decp-network
     expose:
       - "4007"
+
+  # ==========================
+  # FRONTEND SERVICES
+  # ==========================
+  web-app:
+    container_name: decp-web-app
+    build:
+      context: .
+      dockerfile: ./clients/web/Dockerfile
+    env_file:
+      - ./clients/web/.env.prod
+    depends_on:
+      - kong
+    networks:
+      - decp-network
+    ports:
+      - "8080:80"
+    restart: always

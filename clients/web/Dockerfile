@@ -1,0 +1,36 @@
+# ------------- Stage 1 — Builder Stage -------------
+
+# Use the official Node.js image as the base image for the builder stage
+FROM node:24-alpine AS builder
+
+# Set the working directory in the container (inside the docker container, not the host machine)
+WORKDIR /app
+
+# Copy package.json and package-lock.json to the working directory
+COPY clients/web/package*.json ./
+
+# Install dependencies (including dev dependencies for building)
+RUN npm install
+
+# Copy the rest of the application code to the working directory
+COPY clients/web ./
+
+RUN ls -la
+
+# Build the application (this will create the dist directory with the compiled code)
+RUN npm run build
+
+
+# -------------- Stage 2 — Production Stage -------------
+
+# Use a smaller Node.js image for the production stage
+FROM nginx:stable-alpine
+
+# We copy ONLY the final built files from the first stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Expose port 80 for the Nginx server
+EXPOSE 80
+
+# Run Nginx in the foreground (this is necessary for the container to keep running)
+CMD ["nginx", "-g", "daemon off;"]
