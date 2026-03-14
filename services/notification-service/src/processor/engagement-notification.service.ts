@@ -259,4 +259,69 @@ export class EngagementNotificationService {
       }
     }
   }
+
+  // ========================================================================
+  // 2.4 HANDLE COMMENT DELETED BY ADMIN (Notify Post Author)
+  // ========================================================================
+  async handleCommentDeleted(actorId: string, data: any) {
+    const recipientId = data.comment_author_id; // The person who wrote the comment
+
+    this.logger.info(
+      {
+        commentId: data.comment_id,
+        actorId,
+        recipientId,
+        isAdmin: data.deleted_by_admin,
+      },
+      "Handling admin comment deleted event",
+    );
+
+    // 1. Guard Clause: We only notify for admin/moderator deletions
+    if (!data.deleted_by_admin) {
+      this.logger.debug(
+        { commentId: data.comment_id },
+        "Comment was self-deleted. Dropping notification.",
+      );
+      return;
+    }
+
+    // 2. Guard Clause: Missing recipient data
+    if (!recipientId) {
+      this.logger.error(
+        { payload: data },
+        "Cannot process admin comment deletion: comment_author_id is missing from payload",
+      );
+      return;
+    }
+
+    // 3. Fetch User Preferences (Mainly for email routing on moderation actions)
+    const prefs = await this.preferenceService.getPreferences(recipientId);
+
+    // 4. Create In-App Notification (Forced for admin moderation)
+    try {
+      await this.notificationModel.create({
+        recipientId,
+        actorId: actorId || "system", // The admin who did the deletion
+        actionType: ActionType.SYSTEM_ALERT,
+        entityType: EntityType.COMMENT, // Using COMMENT entity type
+        entityId: data.comment_id, // Keep the ID for reference/auditing
+        metadata: {
+          message:
+            "One of your comments has been removed by an administrator for violating community guidelines.",
+          post_id: data.post_id,
+          deleted_by_admin: true,
+        },
+      });
+
+      this.logger.info(
+        { recipientId, commentId: data.comment_id },
+        "Successfully created admin comment deletion in-app notification",
+      );
+    } catch (error) {
+      this.logger.error(
+        { error, recipientId, commentId: data.comment_id },
+        "Failed to create admin comment deletion in-app notification",
+      );
+    }
+  }
 }

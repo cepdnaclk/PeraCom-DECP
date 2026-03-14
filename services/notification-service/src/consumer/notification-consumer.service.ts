@@ -199,6 +199,17 @@ export class NotificationConsumerService
           break;
         }
 
+        case "engagement.comment.deleted": {
+          this.logger.info(
+            `Comment deleted: ${event.data.comment_id} by user ${event.actorId}`,
+          );
+          await this.engagementProcessor.handleCommentDeleted(
+            event.actorId!,
+            event.data,
+          );
+          break;
+        }
+
         default:
           // We safely ignore events we don't care about.
           this.logger.warn(`Unhandled event type: ${event.eventType}`);

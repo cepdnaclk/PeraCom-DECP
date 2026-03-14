@@ -19,6 +19,7 @@ export enum EntityType {
   USER = "USER",
   PROJECT = "PROJECT",
   POST = "POST",
+  COMMENT = "COMMENT",
   JOB = "JOB",
   EVENT = "EVENT",
   MESSAGE = "MESSAGE",
