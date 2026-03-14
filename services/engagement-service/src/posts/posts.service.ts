@@ -425,19 +425,9 @@ export class PostsService {
     payload: UpdatePostDto,
     files: Express.Multer.File[] = [],
   ): Promise<Post> {
-    const { postId, content } = payload;
+    // 1. Extract payload
+    const { postId, content, imageUrls, videoUrl } = payload;
 
-    console.log(
-      "UpdatePost called with payload:",
-      payload,
-      "and files:",
-      files.map((f) => f.originalname),
-    );
-
-    // 1. Validate postId format
-    if (!Types.ObjectId.isValid(postId)) {
-      throw new BadRequestException("Invalid post ID");
-    }
     this.logger.info(
       { correlationId, actorId, postId, fileCount: files.length },
       "Updating post with potential media changes",
@@ -466,67 +456,140 @@ export class PostsService {
       );
     }
 
+    // Helper function to normalize URLs
+    const normalizeUrls = (
+      urls: string[] | string | null | undefined,
+    ): string[] | undefined => {
+      if (urls === undefined) return undefined;
+      if (urls === null) return [];
+      if (urls === "null") return [];
+      return Array.isArray(urls) ? urls : [urls];
+    };
+
+    const requestedImageUrls = normalizeUrls(
+      imageUrls as string[] | string | null | undefined,
+    );
+
+    // Check for updates
+    const hasContentUpdate = content !== undefined;
+    const hasImageUrlsUpdate = requestedImageUrls !== undefined;
+    const hasVideoUrlUpdate = videoUrl !== undefined;
+    const hasMediaUpdate =
+      hasImageUrlsUpdate || hasVideoUrlUpdate || files.length > 0;
+
+    if (!hasContentUpdate && !hasMediaUpdate) {
+      throw new BadRequestException(
+        "No updates provided. Send postId with changed fields only.",
+      );
+    }
+
+    const existingImages = post.images ?? [];
+    const existingVideo = post.video ?? null;
+
+    // Validate media uploads
+    const imageFiles = files.filter((f) => f.mimetype.startsWith("image/"));
+    const videoFiles = files.filter((f) => f.mimetype.startsWith("video/"));
+    const totalImages = imageFiles.length + (requestedImageUrls?.length ?? 0);
+    const totalVideos =
+      videoFiles.length +
+      (hasVideoUrlUpdate ? 0 : existingVideo !== null ? 1 : 0);
+
+    if (totalImages > 0 && totalVideos > 0) {
+      throw new BadRequestException("Cannot have both images and video.");
+    }
+    if (totalImages > env.MAX_ALLOWED_FILES) {
+      throw new BadRequestException(
+        `Maximum ${env.MAX_ALLOWED_FILES} images allowed.`,
+      );
+    }
+    if (totalVideos > 1) {
+      throw new BadRequestException("Only 1 video allowed.");
+    }
+
+    // Client can only reference already-attached media in imageUrls/videoUrl.
+    if (hasImageUrlsUpdate && requestedImageUrls.length > 0) {
+      const existingImageSet = new Set(existingImages);
+      const hasInvalidImageUrl = requestedImageUrls.some(
+        (url) => !existingImageSet.has(url),
+      );
+      if (hasInvalidImageUrl) {
+        throw new BadRequestException(
+          "Invalid imageUrls provided for this post",
+        );
+      }
+    }
+
+    let finalImages = hasImageUrlsUpdate
+      ? [...requestedImageUrls]
+      : [...existingImages];
+    let finalVideo = hasVideoUrlUpdate ? null : existingVideo;
+
     // Track state for our Rollback/Cleanup system
     const newlyUploadedObjects: string[] = [];
-    const oldMediaToCleanup: string[] = [];
+    const uploadedImageUrls: string[] = [];
+    let uploadedVideoUrl: string | null = null;
 
-    // 5. Handle media replacement (if new files are provided)
-    if (files.length > 0) {
-      const imageFiles = files.filter((f) => f.mimetype.startsWith("image/"));
-      const videoFiles = files.filter((f) => f.mimetype.startsWith("video/"));
-
-      if (imageFiles.length > 0 && videoFiles.length > 0)
-        throw new BadRequestException("Cannot upload both images and video");
-      if (imageFiles.length > 10)
-        throw new BadRequestException("Maximum 10 images allowed");
-      if (videoFiles.length > 1)
-        throw new BadRequestException("Only 1 video allowed");
-
-      // Mark old media for deletion (we will delete these ONLY if the DB saves successfully)
-      if (post.images && post.images.length > 0)
-        oldMediaToCleanup.push(...post.images);
-      if (post.video) oldMediaToCleanup.push(post.video);
-
-      // Upload new images
-      if (imageFiles.length > 0) {
-        const uploadedImages: string[] = [];
-        for (const file of imageFiles) {
-          const objectName = `images/${Date.now()}-${file.originalname}`;
-          const url = await this.minioService.uploadFile(
-            objectName,
-            file.buffer,
-            file.mimetype,
-          );
-          uploadedImages.push(url);
-          newlyUploadedObjects.push(objectName); // Track for potential rollback!
-        }
-        post.images = uploadedImages;
-        post.video = null;
-      }
-
-      // Upload new video
-      if (videoFiles.length === 1) {
-        const file: any = videoFiles[0];
-        const objectName = `videos/${Date.now()}-${file.originalname}`;
-        const videoUrl = await this.minioService.uploadFile(
+    // 5. Upload newly added media
+    if (imageFiles.length > 0) {
+      for (const file of imageFiles) {
+        const objectName = `images/${Date.now()}-${file.originalname}`;
+        const url = await this.minioService.uploadFile(
           objectName,
           file.buffer,
           file.mimetype,
         );
-
-        post.video = videoUrl;
-        post.images = [];
-        newlyUploadedObjects.push(objectName); // Track for potential rollback!
+        uploadedImageUrls.push(url);
+        newlyUploadedObjects.push(objectName);
       }
     }
 
-    // 6. Apply content update (if provided)
-    if (content !== undefined) post.content = content;
-
-    if (content === undefined && files.length === 0) {
-      throw new BadRequestException(
-        "No updates provided. Supply content or media files.",
+    if (videoFiles.length === 1) {
+      const file = videoFiles[0];
+      if (!file) {
+        throw new BadRequestException("Invalid video file");
+      }
+      const objectName = `videos/${Date.now()}-${file.originalname}`;
+      uploadedVideoUrl = await this.minioService.uploadFile(
+        objectName,
+        file.buffer,
+        file.mimetype,
       );
+      newlyUploadedObjects.push(objectName);
+    }
+
+    finalImages =
+      uploadedImageUrls.length > 0
+        ? [...finalImages, ...uploadedImageUrls]
+        : [...finalImages];
+    finalVideo = uploadedVideoUrl === null ? finalVideo : uploadedVideoUrl;
+
+    const hasEmptyContent = (content?.trim() ?? "").length === 0;
+    const finalContent = hasContentUpdate
+      ? hasEmptyContent
+        ? undefined
+        : content!.trim()
+      : post.content;
+
+    const oldMediaToCleanup: string[] = [];
+    if (hasMediaUpdate) {
+      oldMediaToCleanup.push(
+        ...existingImages.filter((url) => !finalImages.includes(url)),
+      );
+
+      if (existingVideo && existingVideo !== finalVideo) {
+        oldMediaToCleanup.push(existingVideo);
+      }
+
+      post.images = finalImages;
+      post.video = finalVideo;
+    }
+
+    if (hasContentUpdate) {
+      if (finalContent === undefined) {
+        post.set("content", undefined);
+      } else {
+        post.content = finalContent;
+      }
     }
 
     post.isEdited = true; // Mark as edited
@@ -536,12 +599,37 @@ export class PostsService {
       const updatedPost = await post.save();
 
       // SUCCESS! The DB is safe. Now we can cleanly delete their OLD files in the background.
-      // (Assuming your MinioService has a deleteFile method)
+      const extractObjectNameFromUrl = (mediaUrl: string): string | null => {
+        const bucketMarker = `/${env.MINIO_BUCKET_NAME}/`;
+
+        try {
+          const parsed = new URL(mediaUrl);
+          const index = parsed.pathname.indexOf(bucketMarker);
+          if (index === -1) return null;
+          return decodeURIComponent(
+            parsed.pathname.slice(index + bucketMarker.length),
+          );
+        } catch {
+          const index = mediaUrl.indexOf(bucketMarker);
+          if (index === -1) return null;
+          return decodeURIComponent(
+            mediaUrl.slice(index + bucketMarker.length),
+          );
+        }
+      };
+
       for (const oldUrl of oldMediaToCleanup) {
-        // Extract the object name from your URL and delete it
-        const objectName = oldUrl.split("/").slice(-2).join("/"); // basic extraction
+        const objectName = extractObjectNameFromUrl(oldUrl);
+        if (!objectName) {
+          this.logger.warn(
+            { correlationId, oldUrl },
+            "Skipping media cleanup because object key could not be extracted",
+          );
+          continue;
+        }
+
         this.minioService
-          .deleteFile("posts-bucket", objectName)
+          .deleteFile(env.MINIO_BUCKET_NAME, objectName)
           .catch((err) =>
             this.logger.error(
               { err, correlationId, objectName },
@@ -564,8 +652,8 @@ export class PostsService {
         actorId: actorId,
         data: {
           post_id: postId,
-          content_updated: content !== undefined,
-          media_updated: files.length > 0,
+          content_updated: hasContentUpdate,
+          media_updated: hasMediaUpdate,
         },
       };
 
@@ -586,7 +674,7 @@ export class PostsService {
       );
       for (const objectName of newlyUploadedObjects) {
         await this.minioService
-          .deleteFile("posts-bucket", objectName)
+          .deleteFile(env.MINIO_BUCKET_NAME, objectName)
           .catch((err) =>
             this.logger.error(
               { err, correlationId, objectName },

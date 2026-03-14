@@ -25,12 +25,10 @@ export class UpdatePostDto {
   content?: string;
 
   @IsOptional()
-  @IsUrl({}, { each: true })
-  imageUrls?: string[];
+  imageUrls?: string[] | null;
 
   @IsOptional()
-  @IsUrl()
-  videoUrl?: string;
+  videoUrl?: string | null;
 }
 
 export class RepostDto {
