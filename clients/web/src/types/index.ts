@@ -42,6 +42,28 @@ export interface Comment {
   updatedAt: string;
 }
 
+export interface JobFeedItem {
+  _id: string;
+  title: string;
+  companyName: string;
+  description: string;
+  location: string;
+  employmentType: "FULL_TIME" | "PART_TIME" | "INTERNSHIP" | "CONTRACT";
+  workMode: "ON_SITE" | "REMOTE" | "HYBRID";
+  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  applicationCount: number;
+  updatedAt: string;
+}
+
+export interface Job extends JobFeedItem {
+  department: string;
+  tags: string[];
+  salaryRange?: string;
+  postedBy: User;
+  deadline: string;
+  createdAt: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -99,21 +121,6 @@ export interface Event {
   attendees: number;
   maxAttendees: number;
   organizer: User;
-}
-
-export interface Job {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  type: "full-time" | "part-time" | "internship" | "contract";
-  remote: boolean;
-  description: string;
-  postedBy: User;
-  postedAt: string;
-  industry: string;
-  status: "active" | "closed" | "draft";
-  applicants: number;
 }
 
 export interface Notification {

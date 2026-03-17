@@ -10,6 +10,7 @@ import {
   EmploymentType,
   Job,
   JobStatus,
+  WORK_MODE,
   type JobDocument,
 } from "./schemas/job.schema.js";
 import { CreateJobDto } from "./dto/create-job.dto.js";
@@ -322,6 +323,7 @@ export class JobsService {
     limit?: number,
     search?: string,
     employmentType?: EmploymentType,
+    workMode?: WORK_MODE,
     status?: JobStatus,
   ) {
     // 1. Enforce safe limits (prevent users from requesting 10,000 jobs at once)
@@ -346,7 +348,12 @@ export class JobsService {
       filter.employmentType = employmentType;
     }
 
-    // 5. Apply the Cursor (The Concurrency Shield)
+    // 5. Apply Work Mode Filter (e.g., "Only show me Remote jobs")
+    if (workMode) {
+      filter.workMode = workMode;
+    }
+
+    // 6. Apply the Cursor (The Concurrency Shield)
     if (cursor) {
       if (!Types.ObjectId.isValid(cursor)) {
         throw new BadRequestException("Invalid cursor format");
@@ -355,41 +362,47 @@ export class JobsService {
       filter._id = { $lt: new Types.ObjectId(cursor) };
     }
 
-    // 6. Execute the Query using the Limit + 1 Trick
+    // 7. Check the deadline filter to exclude expired jobs (only for non-admins)
+    if (status === JobStatus.PUBLISHED) {
+      filter.deadline = { $gt: new Date() };
+    }
+
+    // 8. Define the fields to select
+    const select = {
+      _id: 1,
+      title: 1,
+      companyName: 1,
+      description: 1,
+      location: 1,
+      employmentType: 1,
+      workMode: 1,
+      status: 1,
+      applicationCount: 1,
+      updatedAt: 1,
+    };
+
+    // 9. Execute the Query using the Limit + 1 Trick
     const jobs = await this.jobModel
       .find(filter)
       .sort({ _id: -1 }) // Chronological order: Newest first
       .limit(safeLimit + 1)
+      .select(select) // Only select necessary fields for the feed
       .lean() // .lean() strips heavy Mongoose metadata for blazing fast read speeds
       .exec();
 
-    // 7. Resolve the Next Cursor
+    // 10. Resolve the Next Cursor
     let nextCursor: string | null = null;
 
-    // If we got back more items than the requested limit, we know there is a next page!
+    // 11. If we got back more items than the requested limit, we know there is a next page!
     if (jobs.length > safeLimit) {
       const extraJob = jobs.pop(); // Remove the +1 lookahead item
       nextCursor = jobs[jobs.length - 1]?._id.toString() || ""; // The ID of the last real item
     }
 
-    // 8. -Strip out internal fields before sending to client
-    // For example, we don't need to send the internal 'postedBy' actorId if we are just showing the feed
-    const sanitizedJobs = jobs.map((job) => ({
-      id: job._id,
-      title: job.title,
-      companyName: job.companyName,
-      location: job.location,
-      employmentType: job.employmentType,
-      tags: job.tags,
-      salaryRange: job.salaryRange,
-      createdAt: job.createdAt,
-      deadline: job.deadline,
-    }));
-
-    // 9. Prometheus Metric
+    // 12. Prometheus Metric
     this.jobCounter.inc();
 
-    // 10. Kafka Event Emission
+    // 13. Kafka Event Emission
     const jobViewedEvent: BaseEvent<any> = {
       eventId: uuidv7(),
       eventType: "career.job.viewed",
@@ -403,6 +416,7 @@ export class JobsService {
         limit: safeLimit,
         search: search ?? null,
         employmentType: employmentType ?? null,
+        workMode: workMode ?? null,
       },
     };
 
@@ -415,7 +429,7 @@ export class JobsService {
 
     // 9. Return the Feed with Metadata
     return {
-      data: sanitizedJobs,
+      data: jobs,
       nextCursor,
     };
   }

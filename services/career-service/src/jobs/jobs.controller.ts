@@ -16,7 +16,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard.js";
 import { ActorId } from "../auth/decorators/actor.decorator.js";
 import { CorrelationId } from "../auth/decorators/correlation-id.decorator.js";
 import { CreateJobDto } from "./dto/create-job.dto.js";
-import { EmploymentType, JobStatus } from "./schemas/job.schema.js";
+import { EmploymentType, JobStatus, WORK_MODE } from "./schemas/job.schema.js";
 import { RolesGuard } from "../auth/guards/roles.guard.js";
 import { Roles } from "../auth/decorators/roles.decorator.js";
 
@@ -86,6 +86,7 @@ export class JobsController {
     @Query("limit", new DefaultValuePipe(10), ParseIntPipe) limit?: number,
     @Query("search") search?: string,
     @Query("employmentType") employmentType?: EmploymentType,
+    @Query("workMode") workMode?: WORK_MODE,
     @Query("status") status?: JobStatus,
   ) {
     return this.jobsService.getJobsFeed(
@@ -95,6 +96,7 @@ export class JobsController {
       limit,
       search,
       employmentType,
+      workMode,
       status,
     );
   }
@@ -131,6 +133,7 @@ export class JobsController {
     @Query("limit", new DefaultValuePipe(10), ParseIntPipe) limit?: number,
     @Query("search") search?: string,
     @Query("employmentType") employmentType?: EmploymentType,
+    @Query("workMode") workMode?: WORK_MODE,
   ) {
     return this.jobsService.getJobsFeed(
       actorId,
@@ -139,6 +142,7 @@ export class JobsController {
       limit,
       search,
       employmentType,
+      workMode,
       JobStatus.PUBLISHED,
     );
   }
