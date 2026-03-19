@@ -69,7 +69,10 @@ export default function JobCard({ job, actions }: JobCardProps) {
         <div className="flex-1 space-y-3">
           {/* Header & Badges */}
           <div>
-            <h3 className="text-lg font-bold text-card-foreground group-hover:text-primary transition-colors leading-snug">
+            <h3
+              onClick={() => window.open(`/jobs/apply/${job._id}`, "_blank")}
+              className="text-lg font-bold text-card-foreground group-hover:text-primary transition-colors leading-snug hover:underline cursor-pointer"
+            >
               {job.title}
             </h3>
             <div className="mt-2 flex flex-wrap gap-2">

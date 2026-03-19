@@ -1,5 +1,5 @@
-import { useEffect, useState, type UIEvent } from "react";
-import { Search, BriefcaseBusiness } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type UIEvent } from "react";
+import { Search, BriefcaseBusiness, Eye } from "lucide-react";
 import { EmploymentType, JobFeedItem, WorkMode } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/services/api";
@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import EmptyState from "@/components/EmptyState";
 import JobCard from "@/components/JobCard";
+import { Button } from "@/components/ui/button";
 
 type EmpType = EmploymentType | "ALL";
 type WorkModeType = WorkMode | "ALL";
@@ -29,6 +30,25 @@ const workModeOptions: { value: WorkModeType; label: string }[] = [
 
 const FEED_LIMIT = import.meta.env.VITE_FEED_LIMIT;
 
+interface ApiError {
+  response?: { data?: { message?: string } };
+  message?: string;
+}
+
+const deduplicateById = (items: JobFeedItem[]): JobFeedItem[] => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item._id)) return false;
+    seen.add(item._id);
+    return true;
+  });
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  const e = error as ApiError;
+  return e?.response?.data?.message || e?.message || fallback;
+};
+
 const JobsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -38,66 +58,95 @@ const JobsPage = () => {
   const [jobs, setJobs] = useState<JobFeedItem[]>([]);
   const [searchValue, setSearchValue] = useState<string>("");
   const [searchInput, setSearchInput] = useState<string>("");
-  const [cursor, setCursor] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  // Reset jobs and cursor when filters/search change
-  useEffect(() => {
-    setJobs([]);
-    setCursor(null);
-    setNextCursor(null);
-  }, [searchValue, empfilter, workModeFilter]);
+  // ─── Cursor based pagination ────────────────────────────────────
+  const fetchJobs = useCallback(
+    async (options?: { reset?: boolean }) => {
+      const reset = options?.reset ?? false;
+      if (isLoading) return;
 
-  // Fetch jobs when cursor changes
-  useEffect(() => {
-    const fetchJobs = async () => {
+      const cursorToUse = reset ? null : nextCursor;
+      if (!reset && !cursorToUse) return;
+
       setIsLoading(true);
+
       try {
+        // Create Parameters
         const params = {
-          cursor,
+          cursor: cursorToUse,
           limit: FEED_LIMIT,
-          search: searchValue,
+          search: searchValue || undefined,
           employmentType: empfilter === "ALL" ? undefined : empfilter,
           workMode: workModeFilter === "ALL" ? undefined : workModeFilter,
         };
-        console.log("Fetching with params:", params);
+        console.log("Fetching jobs with params:", params);
+
+        // Fetch Jobs
         const response = await api.get("career/jobs", { params });
-        console.log("API Response:", response.data);
+        console.log("Fetched jobs:", response.data);
         const { nextCursor: fetchedNextCursor, data } = response.data;
-        setJobs((prev) => [...prev, ...data]);
-        setNextCursor(fetchedNextCursor);
+
+        // Remove duplicates and update the job list
+        setJobs((prev) =>
+          reset
+            ? deduplicateById(data ?? [])
+            : deduplicateById([...prev, ...data]),
+        );
+        setNextCursor(fetchedNextCursor ?? null);
       } catch (error) {
-        const errMsg =
-          error.response?.data?.message ||
-          "Failed to load jobs. Please try again.";
-        toast.error(errMsg);
+        toast.error(getErrorMessage(error, "Failed to load jobs"));
         console.error("Fetch Error:", error);
       } finally {
         setIsLoading(false);
       }
-    };
-    // Only fetch if cursor is not null (pagination) or jobs is empty (initial load)
-    if (cursor !== null || jobs.length === 0) {
-      fetchJobs();
-    }
+    },
+    [isLoading, nextCursor, searchValue, empfilter, workModeFilter],
+  );
+
+  // Auto trigger on search or status filter change
+  useEffect(() => {
+    console.log(
+      "Search or status filter changed, resetting feed and fetching jobs",
+      nextCursor,
+      searchValue,
+      empfilter,
+      workModeFilter,
+    );
+    fetchJobs({ reset: true }); // Reset feed to the first page
+
+    // fetchJobs depends on cursor state used for incremental loading.
+    // Here we only want to reset on filter changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cursor, searchValue, empfilter, workModeFilter]);
+  }, [searchValue, empfilter, workModeFilter]);
 
-  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
-    if (isLoading || !nextCursor || nextCursor === cursor) {
-      return;
-    }
+  // Auto load next page when the sentinel enters the viewport
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel || isLoading || !nextCursor) return;
 
-    const target = e.currentTarget;
-    const threshold = 64;
-    const reachedBottom =
-      target.scrollHeight - target.scrollTop - target.clientHeight < threshold;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        if (firstEntry?.isIntersecting) {
+          fetchJobs();
+        }
+      },
+      {
+        root: null,
+        rootMargin: "240px 0px",
+        threshold: 0.1,
+      },
+    );
 
-    if (reachedBottom) {
-      setCursor(nextCursor);
-    }
-  };
+    observer.observe(sentinel);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [fetchJobs, isLoading, nextCursor]);
 
   return (
     <div className="space-y-6">
@@ -203,38 +252,45 @@ const JobsPage = () => {
           description="Try adjusting your search or filters to find what you're looking for."
         />
       ) : (
-        <div
-          onScroll={handleScroll}
-          className="space-y-3 h-[calc(100vh-300px)] overflow-y-auto pr-1"
-        >
+        <div className="space-y-3 h-[calc(100vh-300px)] overflow-y-auto pr-1">
           {jobs.map((job) => (
             <JobCard
               key={job._id}
               job={job}
               actions={
                 <>
-                  <button
-                    onClick={() => navigate(`apply/${job._id}`)}
+                  <Button
+                    onClick={() =>
+                      window.open(`/jobs/apply/${job._id}`, "_blank")
+                    }
+                    size="sm"
                     className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 sm:flex-none"
                   >
+                    <BriefcaseBusiness className="h-4 w-4" />
                     Apply
-                  </button>
+                  </Button>
 
-                  <button
-                    onClick={() => navigate(`view/${job._id}`)}
-                    className="flex-1 rounded-lg border p-2 text-muted-foreground hover:bg-secondary flex items-center justify-center"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`/jobs/${job._id}`, "_blank")}
+                    className="flex-1 gap-2 border-primary/20 text-primary hover:bg-primary/5 sm:flex-none w-full"
                   >
+                    <Eye className="h-4 w-4" />
                     View
-                  </button>
+                  </Button>
                 </>
               }
             />
           ))}
-          {isLoading && (
+
+          {isLoading && jobs.length > 0 && (
             <div className="flex justify-center py-2 text-xs text-muted-foreground">
               Loading more jobs...
             </div>
           )}
+
+          {nextCursor && <div ref={loadMoreRef} className="h-1 w-full" />}
         </div>
       )}
     </div>
