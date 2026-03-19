@@ -40,6 +40,7 @@ import {
   Trash2,
   ShieldAlert,
   Flag,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -1312,7 +1313,11 @@ const SocialFeedPage = () => {
       </Dialog>
 
       {/* Posts */}
-      {posts.length === 0 ? (
+      {isLoading && posts.length === 0 ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : posts.length === 0 ? (
         <EmptyState
           icon={<MessageCircle className="h-12 w-12" />}
           title="No posts yet"
