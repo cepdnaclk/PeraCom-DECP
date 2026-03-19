@@ -15,6 +15,7 @@ import ResearchPage from "@/pages/ResearchPage";
 import EventsPage from "@/pages/EventsPage";
 import JobsPage from "@/pages/JobsPage";
 import JobsManagementPage from "@/pages/JobsManagementPage";
+import ViewJobPage from "@/pages/ViewJobPage";
 import AlumniPage from "@/pages/AlumniPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SocialFeedPage from "@/pages/SocialFeedPage";
@@ -51,6 +52,7 @@ const App = () => (
               "/jobs",
               "/alumni",
               "/profile",
+              "/jobs/view/:id"
             ].map((path) => (
               <Route
                 key={path}
@@ -66,6 +68,7 @@ const App = () => (
                       {path === "/jobs" && <JobsPage />}
                       {path === "/alumni" && <AlumniPage />}
                       {path === "/profile" && <ProfilePage />}
+                      {path === "/jobs/view/:id" && <ViewJobPage />}
                     </DashboardLayout>
                   </ProtectedRoute>
                 }
@@ -92,6 +95,7 @@ const App = () => (
               "/admin/jobs",
               "/admin/research",
               "/admin/posts",
+              "/admin/jobs/view/:id"
             ].map((path) => (
               <Route
                 key={path}
@@ -105,6 +109,7 @@ const App = () => (
                       {path === "/admin/jobs" && <JobsManagementPage />}
                       {path === "/admin/research" && <ResearchPage />}
                       {path === "/admin/posts" && <SocialFeedPage />}
+                      {path === "/admin/jobs/view/:id" && <ViewJobPage />}
                     </AdminLayout>
                   </ProtectedRoute>
                 }

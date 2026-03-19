@@ -255,7 +255,7 @@ const JobsPage = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(`/jobs/${job._id}`, "_blank")}
+                    onClick={() => navigate(`/jobs/view/${job._id}`)}
                     className="flex-1 gap-2 border-primary/20 text-primary hover:bg-primary/5 sm:flex-none w-full"
                   >
                     <Eye className="h-4 w-4" />
