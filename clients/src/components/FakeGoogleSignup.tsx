@@ -46,7 +46,7 @@ export default function FakeGoogleSignup({
       className="flex w-auto items-center justify-center rounded-full border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:shadow-md active:scale-[0.98]"
     >
       <GoogleIcon />
-      Continue with Google
+      Continue with Google...
     </button>
   );
 }
