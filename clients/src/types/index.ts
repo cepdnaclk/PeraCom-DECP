@@ -141,3 +141,100 @@ export interface Notification {
   read: boolean;
   timestamp: string;
 }
+
+// ─── Identity / Profile Types ────────────────────────────────────────
+
+export type SocialPlatform =
+  | "LinkedIn"
+  | "GitHub"
+  | "Portfolio"
+  | "Personal"
+  | "Facebook"
+  | "Twitter"
+  | "ResearchGate"
+  | "Other";
+
+export type IdentityEmploymentType =
+  | "Full_time"
+  | "Part_time"
+  | "Internship"
+  | "Freelance"
+  | "Contract"
+  | "Other";
+
+export interface ProfileSocialLink {
+  id: string;
+  user_id: string;
+  platform: SocialPlatform;
+  url: string;
+  created_at: string;
+}
+
+export interface ProfileExperience {
+  id: string;
+  user_id: string;
+  title: string;
+  emp_type: IdentityEmploymentType;
+  company: string;
+  start_date: string;
+  end_date?: string | null;
+  location?: string | null;
+  description?: string | null;
+  created_at: string;
+}
+
+export interface ProfileEducation {
+  id: string;
+  user_id: string;
+  institution: string;
+  degree?: string | null;
+  field_of_study?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  grade?: string | null;
+  created_at: string;
+}
+
+export interface ProfileProject {
+  id: string;
+  user_id: string;
+  title: string;
+  start_date: string;
+  end_date?: string | null;
+  description?: string | null;
+  link?: string | null;
+  created_at: string;
+}
+
+export interface ProfilePublication {
+  id: string;
+  user_id: string;
+  title: string;
+  journal?: string | null;
+  published_date?: string | null;
+  link?: string | null;
+  created_at: string;
+}
+
+export interface UserProfile {
+  id: string;
+  reg_number: string;
+  email: string;
+  first_name: string;
+  middle_name?: string | null;
+  last_name: string;
+  residence?: string | null;
+  role: UserRole;
+  is_active: boolean;
+  profile_pic?: string | null;
+  header_img?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  created_at: string;
+  updated_at: string;
+  socialLinks: ProfileSocialLink[];
+  projects: ProfileProject[];
+  experiences: ProfileExperience[];
+  educations: ProfileEducation[];
+  publications: ProfilePublication[];
+}
